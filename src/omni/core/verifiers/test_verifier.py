@@ -35,7 +35,7 @@ class TestVerifier(Verifier):
         coverage: bool = False,
         junit_report: bool = True,
         junit_report_path: str | None = None,
-        pytest_cmd: str = None,
+        pytest_cmd: str | None = None,
     ):
         """
         Initialize TestVerifier.

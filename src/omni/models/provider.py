@@ -17,6 +17,9 @@ class MessageRole(str, Enum):
     USER = "user"
     ASSISTANT = "assistant"
     TOOL = "tool"
+    
+    def __str__(self):
+        return self.value
 
 
 @dataclass

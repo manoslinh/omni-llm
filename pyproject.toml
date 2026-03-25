@@ -73,6 +73,8 @@ ignore = [
 [tool.ruff.per-file-ignores]
 "__init__.py" = ["F401"]
 "tests/**/*.py" = ["S101"]
+"examples/verifier_usage.py" = ["E402"]
+"test_mutable_default.py" = ["B006"]
 
 [tool.mypy]
 python_version = "3.11"

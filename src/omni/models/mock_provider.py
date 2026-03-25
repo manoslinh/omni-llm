@@ -70,8 +70,12 @@ class MockProvider(ModelProvider):
         logger.debug(f"Mock provider called with model: {model}")
         
         # Get response based on model or default
+        # Handle both versioned and unversioned model names
         if model in self.responses:
             content = self.responses[model]
+        elif model == "anthropic/claude-3-sonnet":
+            # Support unversioned name for backward compatibility
+            content = self.responses.get("anthropic/claude-3-sonnet-20240229", "Mock response")
         else:
             content = self.responses.get("default", "Mock response")
         
@@ -120,7 +124,12 @@ class MockProvider(ModelProvider):
     
     def list_models(self) -> List[str]:
         """List mock models."""
-        return list(self.responses.keys())
+        # Return versioned model names to match LiteLLMProvider
+        return [
+            "openai/gpt-4",
+            "anthropic/claude-3-sonnet-20240229",
+            "deepseek/deepseek-chat",
+        ]
     
     async def close(self):
         """Clean up."""
@@ -145,7 +154,7 @@ def calculate_sum(numbers):
     return sum(numbers)
 ```""",
             
-            "anthropic/claude-3-sonnet": """I'll implement that for you. Here's a robust solution:
+            "anthropic/claude-3-sonnet-20240229": """I'll implement that for you. Here's a robust solution:
 
 test.py
 SEARCH

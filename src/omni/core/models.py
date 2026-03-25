@@ -3,7 +3,8 @@ Shared data models for the edit loop.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+
+from .verifier import VerificationResult
 
 
 @dataclass
@@ -12,25 +13,22 @@ class Edit:
     file_path: str
     old_text: str
     new_text: str
-    search_context: Optional[str] = None
+    search_context: str | None = None
 
 
 @dataclass
 class ApplyResult:
     """Result of applying edits."""
-    files_modified: List[str]
-    files_created: List[str]
-    files_deleted: List[str]
-    errors: List[str]
-
-
-from .verifier import VerificationResult
+    files_modified: list[str]
+    files_created: list[str]
+    files_deleted: list[str]
+    errors: list[str]
 
 
 @dataclass
 class CycleResult:
     """Result of a complete edit cycle."""
-    edits: List[Edit]
+    edits: list[Edit]
     verification: VerificationResult
     cost: float
     reflections: int

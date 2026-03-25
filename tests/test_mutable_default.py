@@ -2,15 +2,16 @@
 """Test for mutable default argument issue."""
 
 import sys
+
 sys.path.insert(0, 'src')
 
-from typing import List, Optional
+
 
 # Mock classes for testing
 class Verifier:
     def __init__(self, name="Test"):
         self.name = name
-    
+
     def __repr__(self):
         return f"Verifier({self.name})"
 
@@ -22,7 +23,7 @@ class NoOpVerifier(Verifier):
 class EditLoopCurrent:
     def __init__(
         self,
-        verifiers: Optional[List[Verifier]] = None,  # None as default
+        verifiers: list[Verifier] | None = None,  # None as default
         max_reflections: int = 3,
     ):
         self.verifiers = verifiers or [NoOpVerifier()]
@@ -32,7 +33,7 @@ class EditLoopCurrent:
 class EditLoopBuggy:
     def __init__(
         self,
-        verifiers: Optional[List[Verifier]] = [NoOpVerifier()],  # Mutable default - BUG!
+        verifiers: list[Verifier] | None = [NoOpVerifier()],  # Mutable default - BUG!
         max_reflections: int = 3,
     ):
         self.verifiers = verifiers
@@ -51,7 +52,7 @@ print(f"  Same list object? {loop1a.verifiers is loop1b.verifiers}")
 print(f"  Same NoOpVerifier object? {loop1a.verifiers[0] is loop1b.verifiers[0]}")
 print()
 
-# Test buggy implementation  
+# Test buggy implementation
 print("2. Testing BUGGY implementation (default=[NoOpVerifier()]):")
 loop2a = EditLoopBuggy()
 loop2b = EditLoopBuggy()
@@ -65,13 +66,13 @@ print()
 print("3. Demonstrating the bug:")
 loop3a = EditLoopBuggy()
 loop3b = EditLoopBuggy()
-print(f"  Before modification:")
+print("  Before modification:")
 print(f"    loop3a.verifiers: {loop3a.verifiers}")
 print(f"    loop3b.verifiers: {loop3b.verifiers}")
 
 # Modify loop3a's verifiers
 loop3a.verifiers.append(Verifier("Extra"))
-print(f"  After appending to loop3a.verifiers:")
+print("  After appending to loop3a.verifiers:")
 print(f"    loop3a.verifiers: {loop3a.verifiers}")
 print(f"    loop3b.verifiers: {loop3b.verifiers}  <-- OOPS! Also modified!")
 print()

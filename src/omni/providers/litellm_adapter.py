@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 
 # Try to import LiteLLM, but make it optional for testing
 try:
-    import litellm
     from litellm import acompletion
     from litellm.exceptions import (
         AuthenticationError as LiteLLMAuthError,
@@ -179,28 +178,28 @@ class LiteLLMAdapter(ModelProvider):
 
         except LiteLLMAuthError as e:
             logger.error(f"Authentication error for model {model}: {e}")
-            raise AuthenticationError(f"Authentication failed for {model}: {e}")
+            raise AuthenticationError(f"Authentication failed for {model}: {e}") from e
         except LiteLLMRateLimitError as e:
             logger.warning(f"Rate limit exceeded for model {model}: {e}")
-            raise RateLimitError(f"Rate limit exceeded for {model}: {e}")
+            raise RateLimitError(f"Rate limit exceeded for {model}: {e}") from e
         except LiteLLMContextError as e:
             logger.warning(f"Context length exceeded for model {model}: {e}")
             raise ContextLengthExceededError(
                 f"Context length exceeded for {model}: {e}"
-            )
+            ) from e
         except LiteLLMNotFoundError:
             logger.error(f"Model not found: {model}")
-            raise ModelNotFoundError(f"Model not found: {model}")
+            raise ModelNotFoundError(f"Model not found: {model}") from None
         except LiteLLMBadRequestError as e:
             if "model" in str(e).lower():
                 logger.error(f"Model not found: {model}")
-                raise ModelNotFoundError(f"Model not found: {model}")
+                raise ModelNotFoundError(f"Model not found: {model}") from e
             else:
                 logger.error(f"Bad request for model {model}: {e}")
-                raise ProviderError(f"Bad request for {model}: {e}")
+                raise ProviderError(f"Bad request for {model}: {e}") from e
         except Exception as e:
             logger.error(f"Unexpected error calling LiteLLM for model {model}: {e}")
-            raise ProviderError(f"Unexpected error for {model}: {e}")
+            raise ProviderError(f"Unexpected error for {model}: {e}") from e
 
     async def stream_chat_completion(
         self,
@@ -264,30 +263,30 @@ class LiteLLMAdapter(ModelProvider):
 
         except LiteLLMAuthError as e:
             logger.error(f"Authentication error for model {model}: {e}")
-            raise AuthenticationError(f"Authentication failed for {model}: {e}")
+            raise AuthenticationError(f"Authentication failed for {model}: {e}") from e
         except LiteLLMRateLimitError as e:
             logger.warning(f"Rate limit exceeded for model {model}: {e}")
-            raise RateLimitError(f"Rate limit exceeded for {model}: {e}")
+            raise RateLimitError(f"Rate limit exceeded for {model}: {e}") from e
         except LiteLLMContextError as e:
             logger.warning(f"Context length exceeded for model {model}: {e}")
             raise ContextLengthExceededError(
                 f"Context length exceeded for {model}: {e}"
-            )
+            ) from e
         except LiteLLMNotFoundError:
             logger.error(f"Model not found: {model}")
-            raise ModelNotFoundError(f"Model not found: {model}")
+            raise ModelNotFoundError(f"Model not found: {model}") from None
         except LiteLLMBadRequestError as e:
             if "model" in str(e).lower():
                 logger.error(f"Model not found: {model}")
-                raise ModelNotFoundError(f"Model not found: {model}")
+                raise ModelNotFoundError(f"Model not found: {model}") from e
             else:
                 logger.error(f"Bad request for model {model}: {e}")
-                raise ProviderError(f"Bad request for {model}: {e}")
+                raise ProviderError(f"Bad request for {model}: {e}") from e
         except Exception as e:
             logger.error(
                 f"Unexpected error streaming from LiteLLM for model {model}: {e}"
             )
-            raise ProviderError(f"Unexpected error for {model}: {e}")
+            raise ProviderError(f"Unexpected error for {model}: {e}") from e
 
     def count_tokens(self, text: str, model: str) -> int:
         """

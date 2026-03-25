@@ -7,14 +7,12 @@ Main CLI interface for the Omni-LLM tool.
 import asyncio
 import logging
 import sys
-from typing import Optional
 
 import click
 
-from ..models.provider import Message, MessageRole
 from ..models.litellm_provider import LiteLLMProvider
 from ..models.mock_provider import MockProvider
-
+from ..models.provider import Message, MessageRole
 
 # Configure logging
 logging.basicConfig(
@@ -37,7 +35,7 @@ def cli():
 @click.option("--temperature", "-t", default=0.7, type=float, help="Temperature (0.0-2.0)")
 @click.option("--max-tokens", type=int, help="Maximum tokens to generate")
 @click.option("--mock", is_flag=True, help="Use mock provider for testing")
-def run(prompt: str, model: str, temperature: float, max_tokens: Optional[int], mock: bool):
+def run(prompt: str, model: str, temperature: float, max_tokens: int | None, mock: bool):
     """Run a single prompt through the model."""
     asyncio.run(_run_async(prompt, model, temperature, max_tokens, mock))
 
@@ -66,7 +64,7 @@ def status():
     click.echo("===============")
     click.echo(f"Python: {sys.version}")
     click.echo(f"Platform: {sys.platform}")
-    
+
     # Check for API keys
     import os
     keys = {
@@ -75,7 +73,7 @@ def status():
         "GOOGLE_API_KEY": bool(os.getenv("GOOGLE_API_KEY")),
         "DEEPSEEK_API_KEY": bool(os.getenv("DEEPSEEK_API_KEY")),
     }
-    
+
     click.echo("\nAPI Keys:")
     for key, present in keys.items():
         status = "✅" if present else "❌"
@@ -86,7 +84,7 @@ async def _run_async(
     prompt: str,
     model: str,
     temperature: float,
-    max_tokens: Optional[int],
+    max_tokens: int | None,
     mock: bool
 ):
     """Async implementation of the run command."""
@@ -98,15 +96,15 @@ async def _run_async(
         else:
             provider = LiteLLMProvider()
             click.echo(f"🚀 Using LiteLLM provider with model: {model}")
-        
+
         # Create messages
         messages = [
             Message(role=MessageRole.SYSTEM, content="You are a helpful coding assistant."),
             Message(role=MessageRole.USER, content=prompt),
         ]
-        
+
         click.echo(f"\n📤 Sending prompt ({len(prompt)} chars)...")
-        
+
         # Get completion
         result = await provider.complete(
             messages=messages,
@@ -114,20 +112,20 @@ async def _run_async(
             temperature=temperature,
             max_tokens=max_tokens,
         )
-        
+
         # Show results
         click.echo("\n📥 Response:")
         click.echo("─" * 50)
         click.echo(result.content)
         click.echo("─" * 50)
-        
+
         # Show usage
-        click.echo(f"\n📊 Usage:")
+        click.echo("\n📊 Usage:")
         click.echo(f"  Model: {result.model}")
         click.echo(f"  Input tokens: {result.usage.prompt_tokens}")
         click.echo(f"  Output tokens: {result.usage.completion_tokens}")
         click.echo(f"  Total tokens: {result.usage.total_tokens}")
-        
+
         # Estimate cost
         cost = provider.estimate_cost(
             result.usage.prompt_tokens,
@@ -135,10 +133,10 @@ async def _run_async(
             result.model
         )
         click.echo(f"  Estimated cost: ${cost:.6f}")
-        
+
         # Clean up
         await provider.close()
-        
+
     except ImportError as e:
         click.echo(f"❌ Error: {e}", err=True)
         click.echo("\nInstall missing dependencies:")
@@ -156,10 +154,10 @@ async def _list_models_async():
         # Try LiteLLM first
         provider = LiteLLMProvider()
         models = provider.list_models()
-        
+
         click.echo("Available models via LiteLLM:")
         click.echo("=" * 50)
-        
+
         # Group by provider
         by_provider = {}
         for model in models:
@@ -167,14 +165,14 @@ async def _list_models_async():
             if provider_name not in by_provider:
                 by_provider[provider_name] = []
             by_provider[provider_name].append(model)
-        
+
         for provider_name, provider_models in sorted(by_provider.items()):
             click.echo(f"\n{provider_name.upper()}:")
             for model in sorted(provider_models):
                 click.echo(f"  • {model}")
-        
+
         await provider.close()
-        
+
     except ImportError:
         click.echo("LiteLLM not installed. Install with: pip install litellm")
         click.echo("\nMock models available:")

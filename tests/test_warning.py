@@ -2,8 +2,8 @@
 """Test to show the warning issue."""
 
 import asyncio
-import warnings
 import sys
+import warnings
 
 # Enable all warnings
 warnings.simplefilter("always")
@@ -16,11 +16,11 @@ async def test():
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    
+
     # Get the coroutine
     coro = process.communicate()
     print(f"Created coroutine: {coro}")
-    
+
     # Don't await it - this should cause a warning when coro is garbage collected
     return
 
@@ -36,12 +36,12 @@ if __name__ == "__main__":
     import io
     old_stderr = sys.stderr
     sys.stderr = io.StringIO()
-    
+
     asyncio.run(main())
-    
+
     stderr_output = sys.stderr.getvalue()
     sys.stderr = old_stderr
-    
+
     print("\nStderr output:")
     print(stderr_output)
     if "RuntimeWarning" in stderr_output and "never awaited" in stderr_output:

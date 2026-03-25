@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Test the actual EditLoop code for mutable default argument bug."""
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 # Import after adding to path
@@ -22,7 +23,7 @@ print(f"loop1.verifiers[0] id: {id(loop1.verifiers[0])}")
 
 print()
 
-# Second instance  
+# Second instance
 provider2 = MockProvider()
 loop2 = EditLoop(model_provider=provider2)
 print(f"loop2.verifiers: {loop2.verifiers}")
@@ -41,7 +42,7 @@ print()
 print("Testing modification...")
 original_length = len(loop1.verifiers)
 loop1.verifiers.append("TEST_ITEM")
-print(f"After appending to loop1.verifiers:")
+print("After appending to loop1.verifiers:")
 print(f"  loop1.verifiers length: {len(loop1.verifiers)} (was {original_length})")
 print(f"  loop2.verifiers length: {len(loop2.verifiers)}")
 

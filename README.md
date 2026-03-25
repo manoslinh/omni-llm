@@ -4,10 +4,10 @@
 
 > Stop choosing between models. Use the best one for each task. Save 40-60%.
 
-[![Tests](https://github.com/manoslinh/omni-llm/actions/workflows/test.yml/badge.svg)](https://github.com/manoslinh/omni-llm/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+*Note: GitHub Actions badges will appear after repository creation*
 
 Omni-LLM is a CLI tool that orchestrates multiple LLMs for coding tasks, automatically routing each task to the most cost-effective model that meets quality requirements.
 

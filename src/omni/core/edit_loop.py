@@ -40,7 +40,7 @@ class EditLoop:
         git_repo: Optional[GitRepository] = None,
         edit_parser: Optional[EditBlockParser] = None,
         edit_applier: Optional[EditApplier] = None,
-        verifiers: Optional[List[Verifier]] = None,
+        verifiers: Optional[List[Verifier]] = None,  # None default avoids mutable default argument bug
         max_reflections: int = 3,
         base_path: Optional[str] = None,
     ):
@@ -59,7 +59,7 @@ class EditLoop:
         self.git_repo = git_repo
         self.edit_parser = edit_parser or EditBlockParser()
         self.edit_applier = edit_applier or EditApplier(base_path=base_path)
-        self.verifiers = verifiers or [NoOpVerifier()]
+        self.verifiers = verifiers or [NoOpVerifier()]  # Create new list if None to avoid shared mutable default
         self.verification_pipeline = VerificationPipeline(self.verifiers)
         self.max_reflections = max_reflections
         

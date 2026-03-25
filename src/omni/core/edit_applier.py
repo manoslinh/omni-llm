@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from .edit_loop import Edit, ApplyResult
+from .models import Edit, ApplyResult
 
 
 logger = logging.getLogger(__name__)

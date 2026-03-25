@@ -11,7 +11,7 @@ import re
 import logging
 from typing import List, Optional, Tuple
 
-from ..core.edit_loop import Edit
+from ..core.models import Edit
 
 
 logger = logging.getLogger(__name__)
@@ -42,9 +42,11 @@ class EditBlockParser:
     )
     
     # Alternative: SEARCH/REPLACE with file paths
+    # More specific: file path should look like a filename (ends with .py, .js, .txt, etc.)
+    # or be a simple filename without special chars
     FILE_SEARCH_REPLACE_PATTERN = re.compile(
-        r'(\S+)\s*\nSEARCH\s*\n?(```|~~~|""")?\s*\n?(.*?)\n?\2?\s*\n?REPLACE\s*\n?(```|~~~|""")?\s*\n?(.*?)\n?\4',
-        re.DOTALL
+        r'^(\S+\.\w+|\w+)\s*\nSEARCH\s*\n?(```|~~~|""")?\s*\n?(.*?)\n?\2?\s*\n?REPLACE\s*\n?(```|~~~|""")?\s*\n?(.*?)\n?\4',
+        re.DOTALL | re.MULTILINE
     )
     
     def __init__(self, require_exact_match: bool = False):

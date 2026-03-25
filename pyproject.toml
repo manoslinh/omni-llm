@@ -40,6 +40,7 @@ dependencies = [
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
     "black>=23.0.0",
@@ -72,6 +73,8 @@ ignore = [
 [tool.ruff.per-file-ignores]
 "__init__.py" = ["F401"]
 "tests/**/*.py" = ["S101"]
+"examples/verifier_usage.py" = ["E402"]
+"test_mutable_default.py" = ["B006"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -94,7 +97,7 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
-asyncio_mode = "auto"
+asyncio_mode = "strict"
 
 [project.urls]
 Homepage = "https://github.com/manoslinh/omni-llm"

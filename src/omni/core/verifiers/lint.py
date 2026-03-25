@@ -27,9 +27,9 @@ class LintVerifier(Verifier):
         name: str = "lint",
         enabled: bool = True,
         severity_level: str = "all",
-        config_path: str = None,
+        config_path: str | None = None,
         fix: bool = False,
-        ruff_cmd: str = None,
+        ruff_cmd: str | None = None,
     ):
         """
         Initialize LintVerifier.

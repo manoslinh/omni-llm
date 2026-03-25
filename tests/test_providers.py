@@ -254,7 +254,7 @@ class TestMockProvider:
         assert isinstance(models, list)
         assert len(models) > 0
         assert "openai/gpt-4" in models
-        assert "anthropic/claude-3-sonnet" in models
+        assert "anthropic/claude-3-sonnet-20240229" in models
         assert "deepseek/deepseek-chat" in models
     
     @pytest.mark.asyncio
@@ -413,11 +413,11 @@ class TestLiteLLMProvider:
         
         result = await provider.complete(
             messages=messages,
-            model="anthropic/claude-3-sonnet",
+            model="anthropic/claude-3-sonnet-20240229",
         )
         
         assert result.content == "Mock response"
-        assert result.model == "anthropic/claude-3-sonnet"
+        assert result.model == "anthropic/claude-3-sonnet-20240229"
         
         # Verify messages were converted correctly
         call_args = mock_litellm['litellm'].completion.call_args
@@ -594,13 +594,13 @@ class TestLiteLLMProvider:
         assert gpt35_capabilities.supports_edit_format == "diff"
         
         # Test Claude 3 capabilities
-        claude_capabilities = provider.get_capabilities("anthropic/claude-3-sonnet")
+        claude_capabilities = provider.get_capabilities("anthropic/claude-3-sonnet-20240229")
         assert claude_capabilities.max_context_tokens == 200_000
         assert claude_capabilities.supports_tools is True
         assert claude_capabilities.supports_vision is True
         
         # Test Gemini 1.5 capabilities
-        gemini_capabilities = provider.get_capabilities("google/gemini-1.5-pro")
+        gemini_capabilities = provider.get_capabilities("google/gemini-1.5-pro-latest")
         assert gemini_capabilities.max_context_tokens == 1_000_000
         
         # Test default capabilities

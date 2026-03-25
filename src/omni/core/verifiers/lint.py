@@ -54,7 +54,7 @@ class LintVerifier(Verifier):
         # Map severity levels to ruff exit codes
         self._severity_map = {
             "all": ["--exit-zero"],  # Don't exit with error on any findings
-            "error": ["--exit-on-error"],  # Exit with error only on E/F errors
+            "error": [],  # Default behavior: exit with non-zero on violations
             "warning": ["--exit-zero"],  # Don't exit on warnings
         }
         

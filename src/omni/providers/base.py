@@ -123,17 +123,17 @@ class ModelProvider(ABC):
     ) -> AsyncGenerator[str, None]:
         """
         Stream messages to the model and get a streaming response.
-        
+
         Args:
             messages: List of messages in the conversation
             model: Model identifier (provider-specific)
             temperature: Sampling temperature (0.0 to 2.0)
             max_tokens: Maximum tokens to generate
             **kwargs: Provider-specific parameters
-            
+
         Returns:
             AsyncGenerator yielding chunks of the response
-            
+
         Raises:
             ProviderError: For general provider errors
             RateLimitError: If rate limit exceeded
@@ -147,11 +147,11 @@ class ModelProvider(ABC):
     def count_tokens(self, text: str, model: str) -> int:
         """
         Count tokens in text for a specific model.
-        
+
         Args:
             text: Text to count tokens for
             model: Model identifier
-            
+
         Returns:
             Number of tokens
         """
@@ -166,12 +166,12 @@ class ModelProvider(ABC):
     ) -> float:
         """
         Estimate cost for a completion.
-        
+
         Args:
             input_tokens: Number of input tokens
             output_tokens: Number of output tokens
             model: Model identifier
-            
+
         Returns:
             Estimated cost in USD
         """

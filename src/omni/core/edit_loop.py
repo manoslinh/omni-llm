@@ -12,8 +12,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ..models.provider import ModelProvider, Message, CompletionResult
 from ..git.repository import GitRepository  # Coming soon
-from .edit_parser import EditParser  # Coming soon
-from .edit_applier import EditApplier  # Coming soon
+from ..edits.editblock import EditBlockParser
+from .edit_applier import EditApplier
 from .verifier import Verifier  # Coming soon
 
 
@@ -74,10 +74,11 @@ class EditLoop:
         self,
         model_provider: ModelProvider,
         git_repo: Optional[Any] = None,  # GitRepository coming soon
-        edit_parser: Optional[Any] = None,  # EditParser coming soon
-        edit_applier: Optional[Any] = None,  # EditApplier coming soon
+        edit_parser: Optional[EditBlockParser] = None,
+        edit_applier: Optional[EditApplier] = None,
         verifiers: Optional[List[Any]] = None,  # List[Verifier] coming soon
         max_reflections: int = 3,
+        base_path: Optional[str] = None,
     ):
         """
         Initialize the edit loop.
@@ -92,8 +93,8 @@ class EditLoop:
         """
         self.model_provider = model_provider
         self.git_repo = git_repo
-        self.edit_parser = edit_parser or self._create_default_parser()
-        self.edit_applier = edit_applier or self._create_default_applier()
+        self.edit_parser = edit_parser or EditBlockParser()
+        self.edit_applier = edit_applier or EditApplier(base_path=base_path)
         self.verifiers = verifiers or []
         self.max_reflections = max_reflections
         
@@ -414,30 +415,7 @@ Be precise and only change what's necessary."""
         
         return f"{summary}\n\n{body}"
     
-    def _create_default_parser(self):
-        """Create a default edit parser (placeholder)."""
-        # This will be replaced with actual EditParser implementation
-        class DefaultParser:
-            async def parse(self, text: str) -> List[Edit]:
-                logger.warning("Using default parser (no-op)")
-                return []
-        
-        return DefaultParser()
-    
-    def _create_default_applier(self):
-        """Create a default edit applier (placeholder)."""
-        # This will be replaced with actual EditApplier implementation
-        class DefaultApplier:
-            async def apply(self, edits: List[Edit]) -> ApplyResult:
-                logger.warning("Using default applier (no-op)")
-                return ApplyResult(
-                    files_modified=[],
-                    files_created=[],
-                    files_deleted=[],
-                    errors=["No applier configured"],
-                )
-        
-        return DefaultApplier()
+    # Removed placeholder methods - using real implementations now
     
     async def close(self):
         """Clean up resources."""

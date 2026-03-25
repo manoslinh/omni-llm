@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional, Union
 from pathlib import Path
 import yaml
 
+from .base import ModelProvider
+
 
 @dataclass
 class ProviderConfig:
@@ -168,9 +170,12 @@ class ProviderConfiguration:
                 errors.append(f"Default model '{default_model}' not supported by any provider")
         
         # Check API keys are set (if required)
-        # Note: We don't require API keys to be set for all providers
-        # Some providers may work without API keys (e.g., local Ollama)
-        pass
+        for key_name, env_var in self.api_keys.items():
+            if env_var.startswith("${") and env_var.endswith("}"):
+                # Environment variable reference
+                env_var_name = env_var[2:-1]
+                if not os.getenv(env_var_name):
+                    errors.append(f"Environment variable {env_var_name} not set for {key_name}")
         
         return errors
     
@@ -297,9 +302,32 @@ class ConfigLoader:
         # Convert to dictionary
         data = config.to_dict()
         
+        # Convert ModelCostConfig objects to dictionaries
+        if "cost_config" in data and "rates" in data["cost_config"]:
+            # Already handled in to_dict method
+            pass
+        
         # Write YAML file
         with open(file_path, 'w') as f:
             yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+
+
+class ProviderFactory:
+    """Factory for creating provider instances from configuration."""
+    
+    @staticmethod
+    def create_provider(provider_config: ProviderConfig) -> ModelProvider:
+        """Create a provider instance from configuration."""
+        provider_type = provider_config.type.lower()
+        
+        if provider_type == "litellm":
+            from .litellm_adapter import LiteLLMAdapter
+            return LiteLLMAdapter(config=provider_config.config)
+        elif provider_type == "mock":
+            from .mock_provider import MockProvider
+            return MockProvider(config=provider_config.config)
+        else:
+            raise ValueError(f"Unknown provider type: {provider_type}")
 
 
 # Default configuration paths

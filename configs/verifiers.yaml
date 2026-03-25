@@ -1,0 +1,74 @@
+# Verifier configurations for Omni-LLM
+#
+# This file defines the verifiers to use in the verification pipeline.
+# Each verifier can be enabled/disabled and configured individually.
+
+# Default verifier pipeline configuration
+pipeline:
+  # Whether to run verifiers automatically
+  enabled: true
+  
+  # Order of verifiers (executed sequentially)
+  order:
+    - lint
+    - test
+  
+  # Whether to stop on first failure
+  stop_on_failure: false
+
+# Lint verifier configuration
+lint:
+  enabled: true
+  name: "lint"
+  severity_level: "all"  # "all", "error", or "warning"
+  config_path: null  # Path to ruff config (pyproject.toml or ruff.toml)
+  fix: false  # Whether to attempt automatic fixes
+  
+  # File patterns to include/exclude
+  include_patterns:
+    - "*.py"
+  exclude_patterns:
+    - "**/__pycache__/**"
+    - "**/*.pyc"
+    - "**/.venv/**"
+    - "**/node_modules/**"
+
+# Test verifier configuration
+test:
+  enabled: true
+  name: "test"
+  test_dir: "tests"  # Directory containing tests
+  pattern: "test_*.py"  # Test file pattern
+  timeout: 300  # Test timeout in seconds
+  coverage: false  # Whether to generate coverage report
+  junit_report: true  # Whether to generate JUnit XML report
+  junit_report_path: null  # Path for JUnit report (null = auto-generated)
+  
+  # Test execution options
+  options:
+    - "-v"  # Verbose output
+    - "--tb=short"  # Short traceback format
+    - "--disable-warnings"  # Disable warnings during test execution
+  
+  # File patterns to include/exclude
+  include_patterns:
+    - "test_*.py"
+    - "*_test.py"
+  exclude_patterns:
+    - "**/__pycache__/**"
+    - "**/*.pyc"
+    - "**/.venv/**"
+
+# Example: Security verifier (placeholder for future implementation)
+# security:
+#   enabled: false
+#   name: "security"
+#   scanner: "bandit"  # or "safety", "trivy", etc.
+#   config_path: null
+
+# Example: Type checking verifier (placeholder for future implementation)
+# type_check:
+#   enabled: false
+#   name: "type_check"
+#   checker: "mypy"  # or "pyright", "pytype"
+#   config_path: null

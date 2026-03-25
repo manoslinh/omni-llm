@@ -18,6 +18,8 @@ from .base import (
     ContextLengthExceededError,
 )
 
+from .cost_tracker import CostTracker, CostRecord
+
 from .config import (
     ProviderConfig,
     APIKeyConfig,
@@ -49,6 +51,10 @@ __all__ = [
     "AuthenticationError",
     "ModelNotFoundError",
     "ContextLengthExceededError",
+    
+    # Cost tracking
+    "CostTracker",
+    "CostRecord",
     
     # Configuration
     "ProviderConfig",

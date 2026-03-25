@@ -1,0 +1,243 @@
+# Omni-LLM Model Configuration
+# YAML configuration for model definitions and routing rules
+
+# Provider configurations
+providers:
+  litellm:
+    type: litellm
+    config:
+      drop_params: true
+      timeout: 30
+      max_retries: 3
+  
+  mock:
+    type: mock
+    config:
+      debug: false
+
+# Model definitions
+models:
+  # OpenAI Models
+  gpt-4:
+    provider: litellm
+    model_id: openai/gpt-4
+    edit_format: editblock
+    use_repo_map: true
+    cost_per_million_input: 30.00
+    cost_per_million_output: 60.00
+    strengths: [architecture, complex_reasoning, code_review]
+    weaknesses: [cost, speed]
+    max_context_tokens: 8192
+    
+  gpt-4-turbo:
+    provider: litellm
+    model_id: openai/gpt-4-turbo-preview
+    edit_format: editblock
+    use_repo_map: true
+    cost_per_million_input: 10.00
+    cost_per_million_output: 30.00
+    strengths: [coding, speed, instruction_following]
+    weaknesses: [cost]
+    max_context_tokens: 128000
+    
+  gpt-3.5-turbo:
+    provider: litellm
+    model_id: openai/gpt-3.5-turbo
+    edit_format: diff
+    use_repo_map: false
+    cost_per_million_input: 0.50
+    cost_per_million_output: 1.50
+    strengths: [speed, cost, simple_tasks]
+    weaknesses: [complex_reasoning, code_quality]
+    max_context_tokens: 16385
+  
+  # Anthropic Models
+  claude-3-opus:
+    provider: litellm
+    model_id: anthropic/claude-3-opus-20240229
+    edit_format: editblock
+    use_repo_map: true
+    cost_per_million_input: 15.00
+    cost_per_million_output: 75.00
+    strengths: [complex_reasoning, analysis, writing]
+    weaknesses: [cost, speed]
+    max_context_tokens: 200000
+    
+  claude-3-sonnet:
+    provider: litellm
+    model_id: anthropic/claude-3-sonnet-20240229
+    edit_format: editblock
+    use_repo_map: true
+    cost_per_million_input: 3.00
+    cost_per_million_output: 15.00
+    strengths: [balanced, coding, analysis]
+    weaknesses: [cost]
+    max_context_tokens: 200000
+    
+  claude-3-haiku:
+    provider: litellm
+    model_id: anthropic/claude-3-haiku-20240307
+    edit_format: diff
+    use_repo_map: false
+    cost_per_million_input: 0.25
+    cost_per_million_output: 1.25
+    strengths: [speed, cost, simple_tasks]
+    weaknesses: [complex_reasoning]
+    max_context_tokens: 200000
+  
+  # Google Models
+  gemini-1.5-pro:
+    provider: litellm
+    model_id: google/gemini-1.5-pro-latest
+    edit_format: editblock
+    use_repo_map: true
+    cost_per_million_input: 3.50
+    cost_per_million_output: 10.50
+    strengths: [multimodal, long_context, coding]
+    weaknesses: [tool_use]
+    max_context_tokens: 1000000
+    
+  gemini-1.5-flash:
+    provider: litellm
+    model_id: google/gemini-1.5-flash-latest
+    edit_format: diff
+    use_repo_map: false
+    cost_per_million_input: 0.075
+    cost_per_million_output: 0.30
+    strengths: [speed, cost, simple_tasks]
+    weaknesses: [complex_reasoning]
+    max_context_tokens: 1000000
+  
+  # DeepSeek Models
+  deepseek-chat:
+    provider: litellm
+    model_id: deepseek/deepseek-chat
+    edit_format: whole
+    use_repo_map: false
+    cost_per_million_input: 0.28
+    cost_per_million_output: 0.42
+    strengths: [coding, cost, speed]
+    weaknesses: [complex_reasoning, english]
+    max_context_tokens: 64000
+    
+  deepseek-coder:
+    provider: litellm
+    model_id: deepseek/deepseek-coder
+    edit_format: whole
+    use_repo_map: false
+    cost_per_million_input: 0.28
+    cost_per_million_output: 0.42
+    strengths: [coding, cost, speed]
+    weaknesses: [general_reasoning]
+    max_context_tokens: 64000
+  
+  # Mock Models (for testing)
+  mock-gpt:
+    provider: mock
+    model_id: mock-gpt
+    edit_format: editblock
+    use_repo_map: false
+    cost_per_million_input: 0.00
+    cost_per_million_output: 0.00
+    strengths: [testing, deterministic]
+    weaknesses: [real_world_use]
+    max_context_tokens: 1000
+
+# Routing rules
+routing:
+  # Task type to model mapping
+  task_types:
+    architecture:
+      priority: [claude-3-sonnet, gpt-4, gemini-1.5-pro]
+      min_quality: 0.8
+      max_cost_per_task: 0.50
+    
+    coding:
+      priority: [deepseek-chat, gpt-3.5-turbo, claude-3-haiku]
+      min_quality: 0.7
+      max_cost_per_task: 0.10
+    
+    code_review:
+      priority: [gpt-4, claude-3-sonnet, gemini-1.5-pro]
+      min_quality: 0.9
+      max_cost_per_task: 0.30
+    
+    testing:
+      priority: [deepseek-coder, gpt-3.5-turbo, claude-3-haiku]
+      min_quality: 0.6
+      max_cost_per_task: 0.05
+    
+    documentation:
+      priority: [claude-3-sonnet, gpt-4, gemini-1.5-pro]
+      min_quality: 0.8
+      max_cost_per_task: 0.20
+  
+  # Default routing strategy
+  default_strategy: cost_optimized  # cost_optimized, quality_first, balanced
+  
+  # Fallback chain (if primary model fails)
+  fallback_chain:
+    - gpt-4
+    - claude-3-sonnet
+    - gemini-1.5-pro
+    - gpt-3.5-turbo
+    - deepseek-chat
+  
+  # Budget settings
+  budget:
+    daily_limit: 10.00  # USD per day
+    per_session_limit: 2.00  # USD per session
+    warning_threshold: 0.8  # Warn at 80% of limit
+
+# Edit format configurations
+edit_formats:
+  editblock:
+    enabled: true
+    max_search_lines: 50
+    require_exact_match: false
+    
+  diff:
+    enabled: true
+    context_lines: 3
+    
+  whole:
+    enabled: true
+    max_file_size_kb: 100
+    
+  patch:
+    enabled: false  # Coming soon
+
+# Verification pipeline
+verification:
+  enabled: true
+  steps:
+    - name: lint
+      command: ruff check --fix
+      languages: [python]
+      required: false
+      
+    - name: test
+      command: pytest
+      languages: [python]
+      required: false
+      
+    - name: type_check
+      command: mypy
+      languages: [python]
+      required: false
+      
+    - name: security
+      command: bandit -r .
+      languages: [python]
+      required: false
+
+# Git configuration
+git:
+  auto_commit: true
+  commit_message_template: "feat: {summary}"
+  branch_template: "omni/{timestamp}-{task_type}"
+  worktree_enabled: false  # Phase 2 feature
+  attribution:
+    author: "Omni-LLM <ai@omni-llm.dev>"
+    committer: "{user_name} <{user_email}>"
+    co_authors: ["AI Assistant <ai@omni-llm.dev>"]

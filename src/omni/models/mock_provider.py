@@ -1,0 +1,195 @@
+"""
+Mock Provider for testing.
+
+Provides deterministic responses without API calls.
+Essential for unit testing and development.
+"""
+
+import asyncio
+import logging
+from typing import Any, Dict, List, Optional
+
+from .provider import (
+    CompletionResult,
+    Message,
+    MessageRole,
+    ModelCapabilities,
+    ModelProvider,
+    TokenUsage,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class MockProvider(ModelProvider):
+    """Mock provider for testing and development."""
+    
+    def __init__(self, responses: Optional[Dict[str, str]] = None):
+        """
+        Initialize mock provider.
+        
+        Args:
+            responses: Optional dictionary mapping model names to responses.
+                      If not provided, uses default responses.
+        """
+        self.responses = responses or self._get_default_responses()
+        self.call_log: List[Dict[str, Any]] = []
+        logger.info("Mock provider initialized")
+    
+    async def complete(
+        self,
+        messages: List[Message],
+        model: str,
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        **kwargs
+    ) -> CompletionResult:
+        """
+        Return a mock completion.
+        
+        Args:
+            messages: List of messages in the conversation
+            model: Model identifier
+            temperature: Ignored in mock
+            max_tokens: Ignored in mock
+            **kwargs: Ignored
+            
+        Returns:
+            Mock CompletionResult
+        """
+        # Log the call
+        call_info = {
+            "model": model,
+            "messages": [(msg.role.value, msg.content[:100]) for msg in messages],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "kwargs": kwargs,
+        }
+        self.call_log.append(call_info)
+        
+        logger.debug(f"Mock provider called with model: {model}")
+        
+        # Get response based on model or default
+        if model in self.responses:
+            content = self.responses[model]
+        else:
+            content = self.responses.get("default", "Mock response")
+        
+        # Simulate async delay
+        await asyncio.sleep(0.01)
+        
+        # Generate mock token usage
+        input_tokens = sum(len(msg.content) // 4 for msg in messages)
+        output_tokens = len(content) // 4
+        
+        return CompletionResult(
+            content=content,
+            model=model,
+            usage=TokenUsage(
+                prompt_tokens=input_tokens,
+                completion_tokens=output_tokens,
+                total_tokens=input_tokens + output_tokens,
+            ),
+            finish_reason="stop",
+        )
+    
+    def count_tokens(self, text: str, model: str) -> int:
+        """Count tokens (rough estimate)."""
+        return len(text) // 4
+    
+    def estimate_cost(
+        self,
+        input_tokens: int,
+        output_tokens: int,
+        model: str
+    ) -> float:
+        """Estimate cost (mock)."""
+        # Mock pricing: $0.01 per 1000 tokens
+        return (input_tokens + output_tokens) / 1000 * 0.01
+    
+    def get_capabilities(self, model: str) -> ModelCapabilities:
+        """Get mock capabilities."""
+        return ModelCapabilities(
+            supports_edit_format="editblock",
+            max_context_tokens=128_000,
+            supports_tools=True,
+            supports_streaming=True,
+            supports_vision=False,
+            supports_audio=False,
+        )
+    
+    def list_models(self) -> List[str]:
+        """List mock models."""
+        return list(self.responses.keys())
+    
+    async def close(self):
+        """Clean up."""
+        self.call_log.clear()
+        logger.info("Mock provider closed")
+    
+    def _get_default_responses(self) -> Dict[str, str]:
+        """Get default mock responses."""
+        return {
+            "default": "I'm a mock LLM. This is a test response.",
+            "openai/gpt-4": """Here's the implementation you requested:
+
+```python
+def calculate_sum(numbers):
+    \"\"\"Calculate the sum of a list of numbers.\"\"\"
+    return sum(numbers)
+```
+
+This function takes a list of numbers and returns their sum using Python's built-in `sum()` function.""",
+            
+            "anthropic/claude-3-sonnet": """I'll implement that for you. Here's a robust solution:
+
+```python
+from typing import List, Union
+
+def calculate_sum(numbers: List[Union[int, float]]) -> Union[int, float]:
+    \"\"\"
+    Calculate the sum of a list of numbers.
+    
+    Args:
+        numbers: List of integers or floats to sum
+        
+    Returns:
+        The sum of all numbers in the list
+        
+    Raises:
+        TypeError: If any element is not a number
+    \"\"\"
+    if not numbers:
+        return 0
+    
+    total = 0
+    for i, num in enumerate(numbers):
+        if not isinstance(num, (int, float)):
+            raise TypeError(f"Element at index {i} is not a number: {type(num)}")
+        total += num
+    
+    return total
+```
+
+This implementation includes type hints, error handling, and proper documentation.""",
+            
+            "deepseek/deepseek-chat": """```python
+def calculate_sum(nums):
+    total = 0
+    for n in nums:
+        total += n
+    return total
+```""",
+        }
+    
+    def get_last_call(self) -> Optional[Dict[str, Any]]:
+        """Get the last call made to the provider."""
+        return self.call_log[-1] if self.call_log else None
+    
+    def get_all_calls(self) -> List[Dict[str, Any]]:
+        """Get all calls made to the provider."""
+        return self.call_log.copy()
+    
+    def clear_calls(self):
+        """Clear the call log."""
+        self.call_log.clear()

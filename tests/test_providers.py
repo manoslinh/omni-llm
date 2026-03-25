@@ -467,7 +467,7 @@ class TestLiteLLMProvider:
         
         # Test AuthenticationError
         from litellm.exceptions import AuthenticationError as LiteLLMAuthError
-        mock_litellm_instance.completion.side_effect = LiteLLMAuthError("Invalid API key")
+        mock_litellm_instance.completion.side_effect = LiteLLMAuthError("Invalid API key", llm_provider="openai", model="gpt-4")
         
         with pytest.raises(AuthenticationError) as exc_info:
             await provider.complete(
@@ -478,7 +478,7 @@ class TestLiteLLMProvider:
         
         # Test RateLimitError
         from litellm.exceptions import RateLimitError as LiteLLMRateLimitError
-        mock_litellm_instance.completion.side_effect = LiteLLMRateLimitError("Rate limit")
+        mock_litellm_instance.completion.side_effect = LiteLLMRateLimitError("Rate limit", llm_provider="openai", model="gpt-4")
         
         with pytest.raises(RateLimitError) as exc_info:
             await provider.complete(
@@ -489,7 +489,7 @@ class TestLiteLLMProvider:
         
         # Test ContextLengthExceededError
         from litellm.exceptions import ContextWindowExceededError as LiteLLMContextError
-        mock_litellm_instance.completion.side_effect = LiteLLMContextError("Context")
+        mock_litellm_instance.completion.side_effect = LiteLLMContextError("Context", model="gpt-4", llm_provider="openai")
         
         with pytest.raises(ContextLengthExceededError) as exc_info:
             await provider.complete(
@@ -501,7 +501,7 @@ class TestLiteLLMProvider:
         # Test ModelNotFoundError (BadRequestError with "model" in message)
         from litellm.exceptions import BadRequestError as LiteLLMBadRequestError
         mock_litellm_instance.completion.side_effect = LiteLLMBadRequestError(
-            "Model 'invalid-model' not found"
+            "Model 'invalid-model' not found", model="invalid-model", llm_provider="openai"
         )
         
         with pytest.raises(ModelNotFoundError) as exc_info:
@@ -513,7 +513,7 @@ class TestLiteLLMProvider:
         
         # Test generic ProviderError for other BadRequestError
         mock_litellm_instance.completion.side_effect = LiteLLMBadRequestError(
-            "Invalid parameter"
+            "Invalid parameter", model="gpt-4", llm_provider="openai"
         )
         
         with pytest.raises(ProviderError) as exc_info:
@@ -619,8 +619,8 @@ class TestLiteLLMProvider:
         expected_models = [
             "openai/gpt-4",
             "openai/gpt-3.5-turbo",
-            "anthropic/claude-3-sonnet",
-            "google/gemini-1.5-pro",
+            "anthropic/claude-3-sonnet-20240229",
+            "google/gemini-1.5-pro-latest",
             "deepseek/deepseek-chat",
         ]
         

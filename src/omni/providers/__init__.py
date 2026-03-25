@@ -1,8 +1,24 @@
 """
-Provider Configuration Module for Omni-LLM.
+Provider module for Omni-LLM.
 
-Contains configuration classes and utilities for managing provider settings.
+Contains provider abstractions and implementations.
 """
+
+from .base import (
+    MessageRole,
+    Message,
+    ChatCompletion,
+    TokenUsage,
+    CostRate,
+    ModelProvider,
+    ProviderError,
+    RateLimitError,
+    AuthenticationError,
+    ModelNotFoundError,
+    ContextLengthExceededError,
+)
+
+from .cost_tracker import CostTracker, CostRecord
 
 from .config import (
     ProviderConfig,
@@ -12,11 +28,35 @@ from .config import (
     RateLimitConfig,
     ProviderConfiguration,
     ConfigLoader,
+    ProviderFactory,
     get_default_providers_config,
     get_providers_config_from_env,
 )
 
+from .litellm_adapter import LiteLLMAdapter
+from .mock_provider import MockProvider
+
 __all__ = [
+    # Base classes
+    "MessageRole",
+    "Message",
+    "ChatCompletion",
+    "TokenUsage",
+    "CostRate",
+    "ModelProvider",
+    
+    # Exceptions
+    "ProviderError",
+    "RateLimitError",
+    "AuthenticationError",
+    "ModelNotFoundError",
+    "ContextLengthExceededError",
+    
+    # Cost tracking
+    "CostTracker",
+    "CostRecord",
+    
+    # Configuration
     "ProviderConfig",
     "APIKeyConfig",
     "ModelCostConfig",
@@ -24,6 +64,11 @@ __all__ = [
     "RateLimitConfig",
     "ProviderConfiguration",
     "ConfigLoader",
+    "ProviderFactory",
     "get_default_providers_config",
     "get_providers_config_from_env",
+    
+    # Implementations
+    "LiteLLMAdapter",
+    "MockProvider",
 ]

@@ -7,54 +7,18 @@ This orchestrates the entire AI coding workflow.
 
 import asyncio
 import logging
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime
+from typing import List, Optional
 
-from ..models.provider import ModelProvider, Message, CompletionResult
-from ..git.repository import GitRepository  # Coming soon
+from ..models.provider import ModelProvider, Message, MessageRole, CompletionResult
+from ..git.repository import GitRepository
 from ..edits.editblock import EditBlockParser
 from .edit_applier import EditApplier
-from .verifier import Verifier  # Coming soon
+from .verifier import Verifier, VerificationPipeline, NoOpVerifier
+from .models import Edit, ApplyResult, VerificationResult, CycleResult
 
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class Edit:
-    """A single edit to apply to a file."""
-    file_path: str
-    old_text: str
-    new_text: str
-    search_context: Optional[str] = None
-
-
-@dataclass
-class ApplyResult:
-    """Result of applying edits."""
-    files_modified: List[str]
-    files_created: List[str]
-    files_deleted: List[str]
-    errors: List[str]
-
-
-@dataclass
-class VerificationResult:
-    """Result of verification pipeline."""
-    passed: bool
-    errors: List[str]
-    warnings: List[str]
-    details: Dict[str, Any]
-
-
-@dataclass
-class CycleResult:
-    """Result of a complete edit cycle."""
-    edits: List[Edit]
-    verification: VerificationResult
-    cost: float
-    reflections: int
-    success: bool
 
 
 class EditLoop:
@@ -73,10 +37,10 @@ class EditLoop:
     def __init__(
         self,
         model_provider: ModelProvider,
-        git_repo: Optional[Any] = None,  # GitRepository coming soon
+        git_repo: Optional[GitRepository] = None,
         edit_parser: Optional[EditBlockParser] = None,
         edit_applier: Optional[EditApplier] = None,
-        verifiers: Optional[List[Any]] = None,  # List[Verifier] coming soon
+        verifiers: Optional[List[Verifier]] = None,
         max_reflections: int = 3,
         base_path: Optional[str] = None,
     ):
@@ -95,7 +59,8 @@ class EditLoop:
         self.git_repo = git_repo
         self.edit_parser = edit_parser or EditBlockParser()
         self.edit_applier = edit_applier or EditApplier(base_path=base_path)
-        self.verifiers = verifiers or []
+        self.verifiers = verifiers or [NoOpVerifier()]
+        self.verification_pipeline = VerificationPipeline(self.verifiers)
         self.max_reflections = max_reflections
         
         self.reflection_count = 0
@@ -110,6 +75,9 @@ class EditLoop:
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         files_to_include: Optional[List[str]] = None,
+        create_feature_branch: bool = False,
+        branch_name: Optional[str] = None,
+        merge_back: bool = True,
     ) -> CycleResult:
         """
         Run a complete edit cycle.
@@ -120,11 +88,19 @@ class EditLoop:
             temperature: Sampling temperature
             max_tokens: Maximum tokens to generate
             files_to_include: Specific files to include in context
+            create_feature_branch: Whether to create a feature branch for this edit
+            branch_name: Name for the feature branch (auto-generated if not provided)
+            merge_back: If creating a feature branch, whether to merge it back to original
             
         Returns:
             CycleResult with details of the cycle
         """
         try:
+            # Create feature branch if requested
+            original_branch = None
+            if create_feature_branch and self.git_repo:
+                original_branch = await self._create_feature_branch(branch_name, user_input)
+            
             # Reset reflection count for new cycle
             self.reflection_count = 0
             
@@ -166,10 +142,25 @@ class EditLoop:
             
             # Finalize
             result.success = result.verification.passed
+            
+            # Return to original branch if we created a feature branch
+            if original_branch and self.git_repo:
+                await self.git_repo.checkout_branch(original_branch)
+                logger.info(f"Returned to original branch: {original_branch}")
+            
             return result
             
         except Exception as e:
             logger.error(f"Edit cycle failed: {e}")
+            
+            # Still try to return to original branch even on error
+            if original_branch and self.git_repo:
+                try:
+                    await self.git_repo.checkout_branch(original_branch)
+                    logger.info(f"Returned to original branch after error: {original_branch}")
+                except Exception as checkout_error:
+                    logger.error(f"Failed to return to original branch: {checkout_error}")
+            
             return CycleResult(
                 edits=[],
                 verification=VerificationResult(
@@ -202,9 +193,13 @@ class EditLoop:
         4. Apply edits
         5. Verify results
         """
-        # 1. Save dirty state (git commit)
+        # 1. Check for dirty changes and auto-commit if needed
         if self.git_repo:
-            await self.git_repo.dirty_commit()
+            # Always call commit_dirty_changes to save current commit for undo
+            # It will check for dirty changes internally and commit if needed
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            commit_message = f"Auto-commit: {timestamp} - Uncommitted changes before AI edit"
+            await self.git_repo.commit_dirty_changes(commit_message)
         
         # 2. Build context messages
         messages = await self._build_context_messages(
@@ -230,7 +225,8 @@ class EditLoop:
         self.total_cost += cost
         
         # 5. Parse edits from completion
-        edits = await self.edit_parser.parse(completion.content)
+        default_file = files_to_include[0] if files_to_include else None
+        edits = await self.edit_parser.parse(completion.content, file_path=default_file)
         
         if not edits:
             logger.warning("No edits parsed from model response")
@@ -307,7 +303,7 @@ class EditLoop:
         # System prompt
         system_prompt = self._get_system_prompt(is_reflection)
         messages.append(Message(
-            role="system",
+            role=MessageRole.SYSTEM,
             content=system_prompt,
         ))
         
@@ -317,7 +313,7 @@ class EditLoop:
         
         # User input
         messages.append(Message(
-            role="user",
+            role=MessageRole.USER,
             content=user_input,
         ))
         
@@ -330,28 +326,7 @@ class EditLoop:
         Returns:
             VerificationResult with combined results
         """
-        all_errors = []
-        all_warnings = []
-        details = {}
-        
-        for verifier in self.verifiers:
-            try:
-                result = await verifier.verify(files)
-                all_errors.extend(result.errors)
-                all_warnings.extend(result.warnings)
-                details[verifier.name] = result.details
-            except Exception as e:
-                logger.error(f"Verifier {verifier.name} failed: {e}")
-                all_errors.append(f"Verifier {verifier.name} failed: {e}")
-        
-        passed = len(all_errors) == 0
-        
-        return VerificationResult(
-            passed=passed,
-            errors=all_errors,
-            warnings=all_warnings,
-            details=details,
-        )
+        return await self.verification_pipeline.verify(files)
     
     def _build_reflection_prompt(
         self,
@@ -415,11 +390,58 @@ Be precise and only change what's necessary."""
         
         return f"{summary}\n\n{body}"
     
+    async def _create_feature_branch(
+        self,
+        branch_name: Optional[str],
+        user_input: str,
+    ) -> Optional[str]:
+        """
+        Create a feature branch for this edit cycle.
+        
+        Args:
+            branch_name: Optional custom branch name
+            user_input: User input for generating branch name
+            
+        Returns:
+            Original branch name if a feature branch was created, None otherwise
+        """
+        if not self.git_repo:
+            return None
+        
+        # Get current branch
+        original_branch = await self.git_repo.get_current_branch()
+        
+        # Generate branch name if not provided
+        if not branch_name:
+            # Create a sanitized branch name from user input
+            import re
+            import hashlib
+            
+            # Take first few words of user input
+            words = user_input.split()[:5]
+            sanitized = "_".join(re.sub(r'[^a-zA-Z0-9]', '', word.lower()) for word in words if word)
+            
+            # Add hash for uniqueness
+            hash_part = hashlib.md5(user_input.encode()).hexdigest()[:8]
+            
+            branch_name = f"feature/{sanitized}_{hash_part}" if sanitized else f"feature/{hash_part}"
+        
+        # Create and checkout branch
+        success = await self.git_repo.create_branch(branch_name, checkout=True)
+        if success:
+            logger.info(f"Created feature branch: {branch_name} (from {original_branch})")
+            return original_branch
+        else:
+            logger.warning(f"Failed to create feature branch: {branch_name}")
+            return None
+    
     # Removed placeholder methods - using real implementations now
     
     async def close(self):
         """Clean up resources."""
         if self.git_repo:
             await self.git_repo.close()
+        
+        await self.verification_pipeline.close()
         
         logger.info(f"EditLoop closed (total cost: ${self.total_cost:.4f})")

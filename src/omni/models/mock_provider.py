@@ -133,16 +133,26 @@ class MockProvider(ModelProvider):
             "default": "I'm a mock LLM. This is a test response.",
             "openai/gpt-4": """Here's the implementation you requested:
 
+test.py
+SEARCH
+```
+
+```
+REPLACE
 ```python
 def calculate_sum(numbers):
     \"\"\"Calculate the sum of a list of numbers.\"\"\"
     return sum(numbers)
-```
-
-This function takes a list of numbers and returns their sum using Python's built-in `sum()` function.""",
+```""",
             
             "anthropic/claude-3-sonnet": """I'll implement that for you. Here's a robust solution:
 
+test.py
+SEARCH
+```
+
+```
+REPLACE
 ```python
 from typing import List, Union
 
@@ -169,9 +179,7 @@ def calculate_sum(numbers: List[Union[int, float]]) -> Union[int, float]:
         total += num
     
     return total
-```
-
-This implementation includes type hints, error handling, and proper documentation.""",
+```""",
             
             "deepseek/deepseek-chat": """```python
 def calculate_sum(nums):

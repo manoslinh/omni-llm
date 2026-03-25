@@ -5,7 +5,9 @@ Tests for the EditLoop service.
 import pytest
 import asyncio
 
-from omni.core.edit_loop import EditLoop, CycleResult, VerificationResult
+from omni.core.edit_loop import EditLoop
+from omni.core.models import CycleResult
+from omni.core.verifier import VerificationResult
 from omni.models.mock_provider import MockProvider
 
 
@@ -43,7 +45,7 @@ class TestEditLoop:
         assert isinstance(result.verification, VerificationResult)
         assert result.cost >= 0
         assert result.reflections == 0
-        assert result.success is False  # Default parser/applier are no-op
+        assert result.success is True  # With improved MockProvider, parser/applier work
     
     @pytest.mark.asyncio
     async def test_run_cycle_with_reflection(self, edit_loop):
@@ -86,7 +88,7 @@ class TestEditLoop:
     
     def test_generate_commit_message(self, edit_loop):
         """Test generating commit messages."""
-        from omni.core.edit_loop import Edit
+        from omni.core.models import Edit
         
         # Single file
         edits = [Edit(file_path="test.py", old_text="", new_text="")]
@@ -100,7 +102,10 @@ class TestEditLoop:
             Edit(file_path="b.py", old_text="", new_text=""),
         ]
         message = edit_loop._generate_commit_message(edits, "Update files")
-        assert "Update a.py, b.py" in message
+        # Check that both files are mentioned (order doesn't matter)
+        assert "a.py" in message
+        assert "b.py" in message
+        assert "Update" in message
         
         # Many files (> 3)
         edits = [

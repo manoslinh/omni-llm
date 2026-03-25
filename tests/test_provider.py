@@ -111,7 +111,7 @@ class TestMockProvider:
         assert isinstance(models, list)
         assert len(models) > 0
         assert "openai/gpt-4" in models
-        assert "anthropic/claude-3-sonnet" in models
+        assert "anthropic/claude-3-sonnet-20240229" in models
         assert "deepseek/deepseek-chat" in models
     
     @pytest.mark.asyncio

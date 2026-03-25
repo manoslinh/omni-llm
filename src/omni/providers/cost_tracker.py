@@ -6,6 +6,7 @@ Tracks per-request costs for LLM API calls.
 
 from typing import Dict, Optional
 from dataclasses import dataclass, field
+from copy import deepcopy
 from .base import CostRate
 
 
@@ -19,6 +20,16 @@ class CostRecord:
     output_cost: float
     total_cost: float
     model: str
+    
+    def __repr__(self) -> str:
+        """Return string representation for debugging."""
+        return (f"CostRecord(model={self.model}, "
+                f"input_tokens={self.input_tokens}, "
+                f"output_tokens={self.output_tokens}, "
+                f"total_tokens={self.total_tokens}, "
+                f"input_cost={self.input_cost:.6f}, "
+                f"output_cost={self.output_cost:.6f}, "
+                f"total_cost={self.total_cost:.6f})")
 
 
 class CostTracker:
@@ -65,7 +76,16 @@ class CostTracker:
             
         Returns:
             CostRecord with calculated costs
+            
+        Raises:
+            ValueError: If token counts are negative
         """
+        # Validate token counts are non-negative
+        if input_tokens < 0:
+            raise ValueError(f"input_tokens must be non-negative, got {input_tokens}")
+        if output_tokens < 0:
+            raise ValueError(f"output_tokens must be non-negative, got {output_tokens}")
+        
         # Use provided cost rates or instance cost rates
         effective_cost_rates = cost_rates or self._cost_rates
         
@@ -126,7 +146,7 @@ class CostTracker:
     
     def get_records(self) -> list[CostRecord]:
         """Get all cost records."""
-        return self._records.copy()
+        return deepcopy(self._records)
     
     def _calculate_costs(
         self,

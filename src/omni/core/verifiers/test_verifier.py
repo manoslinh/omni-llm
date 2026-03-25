@@ -120,14 +120,25 @@ class TestVerifier(Verifier):
             )
             
             # Wait for completion with timeout
+            # Create the coroutine first
+            communicate_coro = process.communicate()
             try:
                 stdout, stderr = await asyncio.wait_for(
-                    process.communicate(),
+                    communicate_coro,
                     timeout=self.timeout + 10  # Add buffer for cleanup
                 )
             except asyncio.TimeoutError:
+                # Kill the process
                 process.kill()
+                # Wait for process to terminate
                 await process.wait()
+                # The communicate_coro was cancelled by wait_for
+                # We need to await it to avoid "coroutine was never awaited" warning
+                try:
+                    await communicate_coro
+                except asyncio.CancelledError:
+                    # This is expected - the coroutine was cancelled by wait_for
+                    pass
                 error_msg = f"Test execution timed out after {self.timeout} seconds"
                 logger.error(error_msg)
                 return VerificationResult(
@@ -137,6 +148,15 @@ class TestVerifier(Verifier):
                     details={"timeout": True, "command": " ".join(cmd)},
                     name=self.name,
                 )
+            except Exception:
+                # For any other exception, we still need to await the coroutine
+                # to avoid "coroutine was never awaited" warning
+                try:
+                    await communicate_coro
+                except (asyncio.CancelledError, Exception):
+                    # Ignore any exceptions here - we're just cleaning up
+                    pass
+                raise  # Re-raise the original exception
             
             # Parse results
             errors = []

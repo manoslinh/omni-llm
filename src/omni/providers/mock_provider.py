@@ -63,7 +63,7 @@ class MockProvider(ModelProvider):
         model: str,
         temperature: float = 0.7,
         max_tokens: int | None = None,
-        **kwargs
+        **kwargs: Any
     ) -> ChatCompletion:
         """
         Return a mock chat completion.
@@ -121,8 +121,8 @@ class MockProvider(ModelProvider):
         model: str,
         temperature: float = 0.7,
         max_tokens: int | None = None,
-        **kwargs
-    ) -> AsyncGenerator[str, None]:
+        **kwargs: Any
+    ) -> AsyncGenerator[str, None]:  # type: ignore
         """
         Stream a mock chat completion.
 
@@ -184,6 +184,6 @@ class MockProvider(ModelProvider):
         """
         return 0.0
 
-    async def close(self):
+    async def close(self) -> None:
         """Clean up resources."""
         pass

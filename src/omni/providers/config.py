@@ -27,7 +27,7 @@ class ProviderConfig:
     config: dict[str, Any] = field(default_factory=dict)
     models: dict[str, dict[str, Any]] = field(default_factory=dict)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate configuration after initialization."""
         if not self.name:
             raise ValueError("Provider name cannot be empty")
@@ -143,7 +143,8 @@ class ProviderConfiguration:
 
     def get_default_model(self) -> str:
         """Get the default model."""
-        return self.defaults.get("model", "gpt-4")
+        model: str = self.defaults.get("model", "gpt-4")
+        return model
 
     def get_model_cost(self, model_id: str) -> ModelCostConfig | None:
         """Get cost configuration for a model."""
@@ -212,7 +213,10 @@ class ConfigLoader:
 
         # Parse YAML
         try:
-            return yaml.safe_load(content)
+            data = yaml.safe_load(content)
+            if not isinstance(data, dict):
+                raise ValueError(f"YAML content is not a dictionary: {type(data)}")
+            return data
         except yaml.YAMLError as e:
             raise ValueError(f"Invalid YAML in {file_path}: {e}") from e
 
@@ -222,7 +226,7 @@ class ConfigLoader:
         # Pattern to match ${VAR_NAME} or $VAR_NAME
         pattern = r'\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)'
 
-        def replace_match(match):
+        def replace_match(match: re.Match[str]) -> str:
             # Try both patterns
             var_name = match.group(1) or match.group(2)
             value = os.getenv(var_name, match.group(0))  # Keep original if not set

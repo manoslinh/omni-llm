@@ -292,7 +292,7 @@ class LiteLLMProvider(ModelProvider):
 
         return common_models
 
-    async def close(self):
+    async def close(self) -> None:
         """Clean up resources."""
         # LiteLLM doesn't require cleanup, but we clear the cache
         self._model_cache.clear()

@@ -85,7 +85,7 @@ class EditApplier:
             errors=errors,
         )
 
-    async def _apply_to_file(self, file_path: str, edits: list[Edit]) -> dict:
+    async def _apply_to_file(self, file_path: str, edits: list[Edit]) -> dict[str, bool | str | None]:
         """
         Apply multiple edits to a single file.
 
@@ -196,7 +196,7 @@ class EditApplier:
         content: str,
         file_path: str,
         edit_index: int
-    ) -> dict:
+    ) -> dict[str, str | bool | None]:
         """
         Apply a single edit to content.
 

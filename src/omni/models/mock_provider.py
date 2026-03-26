@@ -130,7 +130,7 @@ class MockProvider(ModelProvider):
             "deepseek/deepseek-chat",
         ]
 
-    async def close(self):
+    async def close(self) -> None:
         """Clean up."""
         self.call_log.clear()
         logger.info("Mock provider closed")
@@ -206,6 +206,6 @@ def calculate_sum(nums):
         """Get all calls made to the provider."""
         return self.call_log.copy()
 
-    def clear_calls(self):
+    def clear_calls(self) -> None:
         """Clear the call log."""
         self.call_log.clear()

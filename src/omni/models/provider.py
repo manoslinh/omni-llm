@@ -18,7 +18,7 @@ class MessageRole(StrEnum):
     ASSISTANT = "assistant"
     TOOL = "tool"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.value
 
 
@@ -148,7 +148,7 @@ class ModelProvider(ABC):
         pass
 
     @abstractmethod
-    async def close(self):
+    async def close(self) -> None:
         """Clean up provider resources."""
         pass
 

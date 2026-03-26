@@ -344,23 +344,33 @@ class BudgetTracker:
             return None
         return _to_decimal(limit)
 
+    # Lock timeout in seconds for cross-process coordination
+    _LOCK_TIMEOUT: float = 5.0
+    # Retry interval for non-blocking lock acquisition (seconds)
+    _LOCK_RETRY_INTERVAL: float = 0.05
+
     def _load_state(self) -> None:
         """Load budget state from file if it exists.
 
         Handles corrupted files by backing them up and starting fresh.
+        Uses the same .lock file as _save_state for cross-process coordination.
         """
         if not self.config.state_file.exists():
             return
 
         with self._lock:
+            lock_path = self.config.state_file.with_suffix(".lock")
+            lock_fd = None
             try:
-                # Acquire shared lock for reading
-                with open(self.config.state_file) as f:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_SH)
-                    try:
+                # Ensure lock file exists
+                lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDONLY, 0o644)
+                # Acquire shared lock with timeout to prevent deadlocks
+                self._acquire_lock(lock_fd, fcntl.LOCK_SH)
+                try:
+                    with open(self.config.state_file) as f:
                         raw = f.read()
-                    finally:
-                        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                finally:
+                    fcntl.flock(lock_fd, fcntl.LOCK_UN)
 
                 data = json.loads(raw)
                 self.state = BudgetState.from_dict(data)
@@ -383,12 +393,40 @@ class BudgetTracker:
                 except OSError:
                     pass  # Best effort backup
                 self.state = BudgetState()
+            finally:
+                if lock_fd is not None:
+                    os.close(lock_fd)
+
+    def _acquire_lock(self, lock_fd: int, lock_type: int) -> None:
+        """Acquire a file lock with timeout and retry.
+
+        Args:
+            lock_fd: File descriptor of the lock file.
+            lock_type: fcntl.LOCK_SH (shared/reader) or fcntl.LOCK_EX (exclusive/writer).
+
+        Raises:
+            TimeoutError: If lock cannot be acquired within _LOCK_TIMEOUT.
+        """
+        import time
+
+        deadline = time.monotonic() + self._LOCK_TIMEOUT
+        while True:
+            try:
+                fcntl.flock(lock_fd, lock_type | fcntl.LOCK_NB)
+                return  # Lock acquired
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError(
+                        f"Could not acquire file lock within {self._LOCK_TIMEOUT}s"
+                    )
+                time.sleep(self._LOCK_RETRY_INTERVAL)
 
     def _save_state_unlocked(self) -> None:
         """Save state to file with atomic write and file locking.
 
         Uses temp file + rename for crash safety.
-        Uses a separate .lock file for cross-process coordination.
+        Uses a dedicated .lock file for cross-process coordination.
+        Writers use LOCK_EX (exclusive) to coordinate with readers (LOCK_SH).
         """
         self.config.state_file.parent.mkdir(parents=True, exist_ok=True)
         state_dir = self.config.state_file.parent
@@ -398,7 +436,7 @@ class BudgetTracker:
         # Cross-process file locking via dedicated lock file
         lock_fd = os.open(lock_path, os.O_CREAT | os.O_WRONLY, 0o644)
         try:
-            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+            self._acquire_lock(lock_fd, fcntl.LOCK_EX)
             try:
                 # Atomic write: temp file + rename
                 fd, tmp_path = tempfile.mkstemp(

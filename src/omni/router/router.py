@@ -298,7 +298,10 @@ class ModelRouter:
         """
         start_time = time.time()
         errors: list[Exception] = []
-        retries = 0
+        total_attempts = 0
+
+        # Get strategy early to avoid redundant calls
+        strategy = self.get_strategy(strategy_name)
 
         # Get fallback chain
         if fallback_chain is None:
@@ -307,16 +310,14 @@ class ModelRouter:
         # If no fallback chain specified, we'll build one dynamically
         if not fallback_chain:
             # Get ranked models and use them as fallback chain
-            ranked = self.rank_models(task_type, context, strategy_name)
+            ranked = strategy.rank_models(task_type, context)
             fallback_chain = [model.model_id for model in ranked]
 
         # Try each model in the chain
         for _attempt, model_id in enumerate(fallback_chain):
             # Check budget before attempting
             if context.budget_remaining is not None:
-                cost_est = self.estimate_cost(
-                    task_type, model_id, context, strategy_name
-                )
+                cost_est = strategy.estimate_cost(task_type, model_id, context)
                 if cost_est.total_cost_usd > context.budget_remaining:
                     logger.warning(
                         f"Model {model_id} exceeds budget: "
@@ -357,19 +358,13 @@ class ModelRouter:
                     if self.config.enable_cost_tracking:
                         # This would integrate with a cost tracker service
                         # For now, we'll use the estimate
-                        cost_est = self.estimate_cost(
-                            task_type, model_id, context, strategy_name
-                        )
+                        cost_est = strategy.estimate_cost(task_type, model_id, context)
                         total_cost = cost_est.total_cost_usd
 
                         # Update internal tracker
                         self._cost_tracker[model_id] = (
                             self._cost_tracker.get(model_id, 0.0) + total_cost
                         )
-
-                    # Get strategy name
-                    strategy = self.get_strategy(strategy_name)
-                    strategy_used = strategy.name if strategy_name is None else strategy_name
 
                     # Success!
                     elapsed = time.time() - start_time
@@ -378,8 +373,8 @@ class ModelRouter:
                         completion=completion,
                         total_cost_usd=total_cost,
                         provider_name=provider.__class__.__name__,
-                        strategy_name=strategy_used,
-                        retries=retries + retry,
+                        strategy_name=strategy.name,
+                        retries=total_attempts + retry,
                         elapsed_seconds=elapsed,
                         errors=errors,
                     )
@@ -400,7 +395,7 @@ class ModelRouter:
                         break
 
             # This model failed, try next in chain
-            retries += self.config.max_retries_per_model + 1
+            total_attempts += self.config.max_retries_per_model + 1
 
         # All models failed
         elapsed = time.time() - start_time

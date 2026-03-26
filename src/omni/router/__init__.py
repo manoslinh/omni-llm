@@ -7,6 +7,7 @@ This package provides:
 - Errors: Router-specific exceptions for budget and eligibility failures
 """
 
+from .cost_optimized import CostOptimizedStrategy
 from .errors import (
     AllModelsFailedError,
     BudgetExceededError,
@@ -24,8 +25,9 @@ from .models import (
 from .strategy import RoutingStrategy
 
 __all__ = [
-    # Strategy
+    # Strategies
     "RoutingStrategy",
+    "CostOptimizedStrategy",
     # Data models
     "TaskType",
     "ModelSelection",

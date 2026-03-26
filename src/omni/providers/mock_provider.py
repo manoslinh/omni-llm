@@ -122,18 +122,7 @@ class MockProvider(ModelProvider):
         temperature: float = 0.7,
         max_tokens: int | None = None,
         **kwargs: Any
-    ) -> AsyncGenerator[str, None]:
-        """
-        Stream a mock chat completion.
-
-        Args:
-            messages: List of messages in the conversation
-            model: Model identifier
-            temperature: Sampling temperature
-            max_tokens: Maximum tokens to generate
-            **kwargs: Additional parameters
-
-        Returns:
+<<<<<<< HEAD
             AsyncGenerator yielding chunks of the response
         """
         # Get the full response

@@ -434,7 +434,7 @@ Be precise and only change what's necessary."""
 
     # Removed placeholder methods - using real implementations now
 
-    async def close(self):
+    async def close(self) -> None:
         """Clean up resources."""
         if self.git_repo:
             await self.git_repo.close()

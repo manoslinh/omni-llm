@@ -208,18 +208,7 @@ class LiteLLMAdapter(ModelProvider):
         temperature: float = 0.7,
         max_tokens: int | None = None,
         **kwargs: Any,
-    ) -> AsyncGenerator[str, None]:
-        """
-        Stream messages to the model via LiteLLM.
-
-        Args:
-            messages: List of messages in the conversation
-            model: Model identifier (e.g., "openai/gpt-4")
-            temperature: Sampling temperature (0.0 to 2.0)
-            max_tokens: Maximum tokens to generate
-            **kwargs: Additional LiteLLM parameters
-
-        Returns:
+<<<<<<< HEAD
             AsyncGenerator yielding chunks of the response
 
         Raises:
@@ -303,7 +292,7 @@ class LiteLLMAdapter(ModelProvider):
             # LiteLLM's token_counter is synchronous
             import litellm
 
-            return litellm.token_counter(model=model, text=text)
+            return litellm.token_counter(model=model, text=text)  # type: ignore[no-any-return]
         except Exception as e:
             logger.warning(f"Failed to count tokens for {model}: {e}")
             # Fallback: rough estimate of 4 chars per token

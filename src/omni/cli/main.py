@@ -12,7 +12,7 @@ import click
 
 from ..models.litellm_provider import LiteLLMProvider
 from ..models.mock_provider import MockProvider
-from ..models.provider import Message, MessageRole
+from ..models.provider import Message, MessageRole, ModelProvider
 
 # Configure logging
 logging.basicConfig(
@@ -90,6 +90,7 @@ async def _run_async(
     """Async implementation of the run command."""
     try:
         # Create provider
+        provider: ModelProvider
         if mock:
             provider = MockProvider()
             click.echo("📦 Using mock provider (no API calls)")
@@ -159,7 +160,7 @@ async def _list_models_async() -> None:
         click.echo("=" * 50)
 
         # Group by provider
-        by_provider = {}
+        by_provider: dict[str, list[str]] = {}
         for model in models:
             provider_name = model.split("/")[0] if "/" in model else "unknown"
             if provider_name not in by_provider:

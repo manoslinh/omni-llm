@@ -8,10 +8,26 @@ import asyncio
 import logging
 import os
 from pathlib import Path
+from typing import TypedDict, NotRequired
 
 from .models import ApplyResult, Edit
 
 logger = logging.getLogger(__name__)
+
+
+class _SingleEditResult(TypedDict):
+    """Result of applying a single edit."""
+    content: str
+    error: str | None
+    deleted: bool
+
+
+class _FileApplyResult(TypedDict):
+    """Result of applying edits to a file."""
+    modified: bool
+    created: bool
+    deleted: bool
+    error: str | None
 
 
 class EditApplier:
@@ -70,8 +86,9 @@ class EditApplier:
                 elif result["modified"]:
                     files_modified.append(file_path)
 
-                if result["error"]:
-                    errors.append(result["error"])
+                error = result["error"]
+                if error and isinstance(error, str):
+                    errors.append(error)
 
             except Exception as e:
                 error_msg = f"Failed to apply edits to {file_path}: {e}"
@@ -85,7 +102,7 @@ class EditApplier:
             errors=errors,
         )
 
-    async def _apply_to_file(self, file_path: str, edits: list[Edit]) -> dict[str, bool | str | None]:
+    async def _apply_to_file(self, file_path: str, edits: list[Edit]) -> _FileApplyResult:
         """
         Apply multiple edits to a single file.
 
@@ -196,7 +213,7 @@ class EditApplier:
         content: str,
         file_path: str,
         edit_index: int
-    ) -> dict[str, str | bool | None]:
+    ) -> _SingleEditResult:
         """
         Apply a single edit to content.
 

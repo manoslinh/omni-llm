@@ -77,7 +77,7 @@ class LiteLLMProvider(ModelProvider):
         model: str,
         temperature: float = 0.7,
         max_tokens: int | None = None,
-        **kwargs
+        **kwargs: Any
     ) -> CompletionResult:
         """
         Send messages to the model via LiteLLM.
@@ -300,9 +300,9 @@ class LiteLLMProvider(ModelProvider):
 
     def _convert_messages(self, messages: list[Message]) -> list[dict[str, Any]]:
         """Convert our Message objects to LiteLLM format."""
-        result = []
+        result: list[dict[str, Any]] = []
         for msg in messages:
-            litellm_msg = {"role": msg.role.value, "content": msg.content}
+            litellm_msg: dict[str, Any] = {"role": msg.role.value, "content": msg.content}
             if msg.name:
                 litellm_msg["name"] = msg.name
             if msg.tool_calls:

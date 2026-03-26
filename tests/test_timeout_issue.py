@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
+import pytest
 """Test to reproduce the timeout issue with RuntimeWarning."""
 
 import asyncio
 import warnings
 
 
+@pytest.mark.asyncio
 async def test_timeout_issue():
     """Reproduce the coroutine never awaited issue."""
     # Enable all warnings

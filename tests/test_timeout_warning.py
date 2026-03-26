@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import pytest
 """Test to verify timeout fix doesn't produce RuntimeWarning."""
 
 import asyncio
@@ -15,6 +16,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 from omni.core.verifiers.test_verifier import TestVerifier
 
 
+@pytest.mark.asyncio
 async def test_timeout_no_warning():
     """Test that timeout doesn't produce RuntimeWarning."""
     # Capture warnings

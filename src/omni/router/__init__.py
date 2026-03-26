@@ -2,6 +2,7 @@
 Omni-LLM Model Router — cost-aware model selection and routing.
 
 This package provides:
+- ModelRouter: Main facade for unified model routing with fallback chains
 - RoutingStrategy: Abstract interface for pluggable routing strategies
 - Data models: TaskType, ModelSelection, CostEstimate, etc.
 - Errors: Router-specific exceptions for budget and eligibility failures
@@ -22,9 +23,14 @@ from .models import (
     RoutingContext,
     TaskType,
 )
+from .router import ModelRouter, RouterConfig, RouterResult
 from .strategy import RoutingStrategy
 
 __all__ = [
+    # Main router facade
+    "ModelRouter",
+    "RouterConfig",
+    "RouterResult",
     # Strategies
     "RoutingStrategy",
     "CostOptimizedStrategy",

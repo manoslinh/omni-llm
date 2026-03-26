@@ -115,14 +115,14 @@ class MockProvider(ModelProvider):
             finish_reason="stop",
         )
 
-    async def stream_chat_completion(
+    async def stream_chat_completion(  # type: ignore[override]
         self,
         messages: list[Message],
         model: str,
         temperature: float = 0.7,
         max_tokens: int | None = None,
         **kwargs: Any
-    ) -> AsyncGenerator[str, None]:  # type: ignore
+    ) -> AsyncGenerator[str, None]:
         """
         Stream a mock chat completion.
 

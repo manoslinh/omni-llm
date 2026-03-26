@@ -201,14 +201,14 @@ class LiteLLMAdapter(ModelProvider):
             logger.error(f"Unexpected error calling LiteLLM for model {model}: {e}")
             raise ProviderError(f"Unexpected error for {model}: {e}") from e
 
-    async def stream_chat_completion(
+    async def stream_chat_completion(  # type: ignore[override]
         self,
         messages: list[Message],
         model: str,
         temperature: float = 0.7,
         max_tokens: int | None = None,
         **kwargs: Any,
-    ) -> AsyncGenerator[str, None]:  # type: ignore[override]
+    ) -> AsyncGenerator[str, None]:
         """
         Stream messages to the model via LiteLLM.
 

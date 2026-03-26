@@ -307,6 +307,10 @@ class TestVerificationPipeline:
 
             async def verify(self, files):
                 raise RuntimeError("Verifier failed!")
+            
+            async def close(self) -> None:
+                """No resources to clean up."""
+                pass
 
         verifier = FailingVerifier()
         pipeline = VerificationPipeline([verifier])

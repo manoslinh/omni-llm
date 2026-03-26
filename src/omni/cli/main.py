@@ -90,6 +90,7 @@ async def _run_async(
     """Async implementation of the run command."""
     try:
         # Create provider
+        provider: BaseProvider
         if mock:
             provider = MockProvider()
             click.echo("📦 Using mock provider (no API calls)")

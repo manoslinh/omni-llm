@@ -73,7 +73,7 @@ class ModelProvider(ABC):
         model: str,
         temperature: float = 0.7,
         max_tokens: int | None = None,
-        **kwargs
+        **kwargs: Any
     ) -> CompletionResult:
         """
         Send messages to the model and get a completion.

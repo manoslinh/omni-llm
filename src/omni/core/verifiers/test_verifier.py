@@ -160,7 +160,7 @@ class TestVerifier(Verifier):
             # Parse results
             errors = []
             warnings = []
-            details = {
+            details: dict[str, Any] = {
                 "command": " ".join(cmd),
                 "exit_code": process.returncode,
                 "stdout": stdout.decode() if stdout else "",
@@ -239,7 +239,7 @@ class TestVerifier(Verifier):
         tree = ET.parse(report_path)
         root = tree.getroot()
 
-        results = {
+        results: dict[str, Any] = {
             "tests": int(root.attrib.get("tests", 0)),
             "failures": int(root.attrib.get("failures", 0)),
             "errors": int(root.attrib.get("errors", 0)),

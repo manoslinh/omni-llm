@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import pytest
 """
 Quick test for LiteLLMAdapter implementation.
 """
@@ -12,6 +13,7 @@ from omni.providers.base import CostRate, Message, MessageRole, TokenUsage
 from omni.providers.litellm_adapter import LiteLLMAdapter
 
 
+@pytest.mark.asyncio
 async def test_adapter_interface():
     """Test that LiteLLMAdapter correctly implements the ModelProvider interface."""
 
@@ -65,8 +67,6 @@ async def test_adapter_interface():
 
 def test_message_dataclass():
     """Test Message dataclass."""
-    print("\nTesting Message dataclass...")
-
     msg = Message(
         role=MessageRole.USER,
         content="Hello, world!",
@@ -76,15 +76,10 @@ def test_message_dataclass():
     assert msg.role == MessageRole.USER
     assert msg.content == "Hello, world!"
     assert msg.name == "test-user"
-    print("Message dataclass test passed")
-
-    return True
 
 
 def test_token_usage_dataclass():
     """Test TokenUsage dataclass."""
-    print("\nTesting TokenUsage dataclass...")
-
     usage = TokenUsage(
         prompt_tokens=100,
         completion_tokens=50,
@@ -94,15 +89,10 @@ def test_token_usage_dataclass():
     assert usage.prompt_tokens == 100
     assert usage.completion_tokens == 50
     assert usage.total_tokens == 150
-    print("TokenUsage dataclass test passed")
-
-    return True
 
 
 def test_cost_rate_dataclass():
     """Test CostRate dataclass."""
-    print("\nTesting CostRate dataclass...")
-
     rate = CostRate(
         input_per_million=30.00,
         output_per_million=60.00,
@@ -110,9 +100,6 @@ def test_cost_rate_dataclass():
 
     assert rate.input_per_million == 30.00
     assert rate.output_per_million == 60.00
-    print("CostRate dataclass test passed")
-
-    return True
 
 
 async def main():

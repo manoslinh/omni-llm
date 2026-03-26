@@ -41,7 +41,7 @@ class MockProvider(ModelProvider):
         model: str,
         temperature: float = 0.7,
         max_tokens: int | None = None,
-        **kwargs
+        **kwargs: Any
     ) -> CompletionResult:
         """
         Return a mock completion.

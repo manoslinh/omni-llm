@@ -65,7 +65,7 @@ class Verifier(ABC):
 class NoOpVerifier(Verifier):
     """A verifier that does nothing (for testing)."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("noop", enabled=True)
 
     async def verify(self, files: list[str]) -> VerificationResult:
@@ -77,6 +77,10 @@ class NoOpVerifier(Verifier):
             details={"files_checked": files},
             name=self.name,
         )
+
+    async def close(self) -> None:
+        """No resources to clean up."""
+        pass
 
 
 class VerificationPipeline:

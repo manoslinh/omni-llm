@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-import pytest
 """Test the timeout fix specifically."""
 
 import asyncio
 import sys
 import warnings
+
+import pytest
 
 # Enable all warnings
 warnings.simplefilter("always")

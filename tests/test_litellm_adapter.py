@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-import pytest
-"""
-Quick test for LiteLLMAdapter implementation.
-"""
+"""Quick test for LiteLLMAdapter implementation."""
 
 import asyncio
 import sys
 
+import pytest
+
 sys.path.insert(0, 'src')
 
-from omni.providers.base import CostRate, Message, MessageRole, TokenUsage
-from omni.providers.litellm_adapter import LiteLLMAdapter
+from omni.providers.base import CostRate, Message, MessageRole, TokenUsage  # noqa: E402
+from omni.providers.litellm_adapter import LiteLLMAdapter  # noqa: E402
 
 
 @pytest.mark.asyncio

@@ -8,7 +8,7 @@ import asyncio
 import logging
 import os
 from pathlib import Path
-from typing import TypedDict, NotRequired
+from typing import TypedDict
 
 from .models import ApplyResult, Edit
 

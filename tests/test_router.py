@@ -12,7 +12,7 @@ Validates:
 
 import asyncio
 import sys
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -28,11 +28,9 @@ from omni.router import (
     ModelRouter,
     NoEligibleModelError,
     RouterConfig,
-    RouterResult,
     RoutingContext,
     TaskType,
 )
-
 
 # ── Test Fixtures ──────────────────────────────────────────────────────────
 
@@ -64,7 +62,7 @@ def router_config(mock_provider: MagicMock, mock_strategy: MagicMock) -> RouterC
     backup_provider = MagicMock()
     backup_provider.complete = AsyncMock()
     backup_provider.__class__.__name__ = "BackupProvider"
-    
+
     return RouterConfig(
         strategies={"mock_strategy": mock_strategy},
         providers={"test-model": mock_provider, "backup-model": backup_provider},
@@ -381,7 +379,7 @@ class TestCompletion:
         # Get the providers from the router
         test_provider = model_router.get_provider("test-model")
         backup_provider = model_router.get_provider("backup-model")
-        
+
         # First provider fails, backup succeeds
         test_provider.complete.side_effect = RuntimeError("First model failed")
         backup_provider.complete.return_value = sample_completion
@@ -412,7 +410,7 @@ class TestCompletion:
         # Get both providers
         test_provider = model_router.get_provider("test-model")
         backup_provider = model_router.get_provider("backup-model")
-        
+
         # Both providers fail
         test_provider.complete.side_effect = RuntimeError("Test model failed")
         backup_provider.complete.side_effect = RuntimeError("Backup model failed")
@@ -492,10 +490,10 @@ class TestCompletion:
         # Get the providers
         test_provider = model_router.get_provider("test-model")
         backup_provider = model_router.get_provider("backup-model")
-        
+
         # Both providers timeout
-        test_provider.complete.side_effect = asyncio.TimeoutError("Request timed out")
-        backup_provider.complete.side_effect = asyncio.TimeoutError("Request timed out")
+        test_provider.complete.side_effect = TimeoutError("Request timed out")
+        backup_provider.complete.side_effect = TimeoutError("Request timed out")
 
         with pytest.raises(AllModelsFailedError) as exc_info:
             await model_router.complete(
@@ -519,11 +517,11 @@ class TestCompletion:
         custom_provider1 = MagicMock()
         custom_provider1.complete = AsyncMock(return_value=sample_completion)
         custom_provider1.__class__.__name__ = "CustomProvider1"
-        
+
         custom_provider2 = MagicMock()
         custom_provider2.complete = AsyncMock()
         custom_provider2.__class__.__name__ = "CustomProvider2"
-        
+
         model_router.register_provider("custom-model-1", custom_provider1)
         model_router.register_provider("custom-model-2", custom_provider2)
 
@@ -557,11 +555,11 @@ class TestCompletion:
         ranked_provider1 = MagicMock()
         ranked_provider1.complete = AsyncMock(return_value=sample_completion)
         ranked_provider1.__class__.__name__ = "RankedProvider1"
-        
+
         ranked_provider2 = MagicMock()
         ranked_provider2.complete = AsyncMock()
         ranked_provider2.__class__.__name__ = "RankedProvider2"
-        
+
         model_router.register_provider("ranked-1", ranked_provider1)
         model_router.register_provider("ranked-2", ranked_provider2)
 
@@ -822,20 +820,18 @@ class TestPerformance:
 
         # First call fails, second succeeds
         call_times = []
-        
+
         def track_time(*args, **kwargs):
             call_times.append(time.time())
             if len(call_times) == 1:
                 raise RuntimeError("First attempt")
             return sample_completion
-        
+
         mock_provider.complete.side_effect = track_time
 
-        start = time.time()
-        result = await model_router.complete(
+        await model_router.complete(
             sample_messages, TaskType.CODING, sample_context
         )
-        end = time.time()
 
         # Should have waited ~0.01s (backoff_base) between attempts
         if len(call_times) >= 2:

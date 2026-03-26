@@ -18,7 +18,7 @@ def test_config_loading():
     """Test loading provider configuration."""
     # Set dummy environment variables for validation
     env_vars_to_set = [
-        "ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "COHERE_API_KEY", 
+        "ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "COHERE_API_KEY",
         "MISTRAL_API_KEY", "OPENAI_API_KEY", "TOGETHER_API_KEY",
         "FIREWORKS_API_KEY", "BEDROCK_AWS_ACCESS_KEY_ID",
         "BEDROCK_AWS_SECRET_ACCESS_KEY", "BEDROCK_AWS_REGION",
@@ -26,13 +26,13 @@ def test_config_loading():
         "SAMBANOVA_API_KEY", "DEEPSEEK_API_KEY", "GROQ_API_KEY",
         "OLLAMA_BASE_URL", "VERTEX_AI_PROJECT", "VERTEX_AI_LOCATION"
     ]
-    
+
     original_env = {}
     for var in env_vars_to_set:
         if var in os.environ:
             original_env[var] = os.environ[var]
         os.environ[var] = "dummy-value-for-testing"
-    
+
     try:
         # Load default config
         config = get_default_providers_config()
@@ -61,7 +61,7 @@ def test_config_loading():
         # Check validation (should pass with dummy env vars)
         errors = config.validate()
         assert not errors, f"Validation errors: {errors}"
-    
+
     finally:
         # Restore original environment
         for var in env_vars_to_set:
@@ -78,7 +78,7 @@ def test_environment_variable_substitution():
 
     # Create a temporary YAML file with env var
     import tempfile
-    import yaml
+
 
     yaml_content = """
     providers:

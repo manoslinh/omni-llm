@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
-import pytest
 """Test to verify timeout fix doesn't produce RuntimeWarning."""
 
 import asyncio
 import os
-
-# Add the src directory to the path
 import sys
 import tempfile
 import warnings
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from omni.core.verifiers.test_verifier import TestVerifier
+from omni.core.verifiers.test_verifier import TestVerifier  # noqa: E402
 
 
 @pytest.mark.asyncio

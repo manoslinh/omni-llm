@@ -33,7 +33,7 @@ class EditLoopCurrent:
 class EditLoopBuggy:
     def __init__(
         self,
-        verifiers: list[Verifier] | None = [NoOpVerifier()],  # Mutable default - BUG!
+        verifiers: list[Verifier] | None = [NoOpVerifier()],  # noqa: B006  # Mutable default - BUG!
         max_reflections: int = 3,
     ):
         self.verifiers = verifiers

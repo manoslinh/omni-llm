@@ -174,3 +174,8 @@ Thumbs.db
 *.cache
 test_quick.py
 .coverage.*
+test.py
+
+=4.0.0
+=6.0.0
+None

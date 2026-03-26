@@ -122,7 +122,7 @@ class MockProvider(ModelProvider):
         temperature: float = 0.7,
         max_tokens: int | None = None,
         **kwargs: Any
-    ) -> AsyncGenerator[str, None]:  # type: ignore
+    ) -> AsyncGenerator[str, None]:  # type: ignore[override]
         """
         Stream a mock chat completion.
 

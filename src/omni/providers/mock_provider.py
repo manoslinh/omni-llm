@@ -63,7 +63,7 @@ class MockProvider(ModelProvider):
         model: str,
         temperature: float = 0.7,
         max_tokens: int | None = None,
-        **kwargs
+        **kwargs: Any
     ) -> ChatCompletion:
         """
         Return a mock chat completion.
@@ -115,13 +115,13 @@ class MockProvider(ModelProvider):
             finish_reason="stop",
         )
 
-    async def stream_chat_completion(
+    async def stream_chat_completion(  # type: ignore[override]
         self,
         messages: list[Message],
         model: str,
         temperature: float = 0.7,
         max_tokens: int | None = None,
-        **kwargs
+        **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """
         Stream a mock chat completion.
@@ -184,6 +184,6 @@ class MockProvider(ModelProvider):
         """
         return 0.0
 
-    async def close(self):
+    async def close(self) -> None:
         """Clean up resources."""
         pass

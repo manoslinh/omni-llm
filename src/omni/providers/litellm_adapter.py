@@ -104,7 +104,7 @@ class LiteLLMAdapter(ModelProvider):
         model: str,
         temperature: float = 0.7,
         max_tokens: int | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> ChatCompletion:
         """
         Send messages to the model via LiteLLM.
@@ -207,8 +207,8 @@ class LiteLLMAdapter(ModelProvider):
         model: str,
         temperature: float = 0.7,
         max_tokens: int | None = None,
-        **kwargs,
-    ) -> AsyncGenerator[str, None]:
+        **kwargs: Any,
+    ) -> AsyncGenerator[str, None]:  # type: ignore[override]
         """
         Stream messages to the model via LiteLLM.
 
@@ -336,7 +336,7 @@ class LiteLLMAdapter(ModelProvider):
             # Fallback: use cached cost rates
             return self._estimate_cost_fallback(model, input_tokens, output_tokens)
 
-    async def close(self):
+    async def close(self) -> None:
         """Clean up resources."""
         # LiteLLM doesn't require cleanup, but we clear the cache
         self._model_cache.clear()
@@ -346,7 +346,7 @@ class LiteLLMAdapter(ModelProvider):
         """Convert our Message objects to LiteLLM format."""
         result = []
         for msg in messages:
-            litellm_msg = {"role": msg.role.value, "content": msg.content}
+            litellm_msg: dict[str, Any] = {"role": msg.role.value, "content": msg.content}
             if msg.name:
                 litellm_msg["name"] = msg.name
             if msg.tool_calls:
@@ -356,7 +356,7 @@ class LiteLLMAdapter(ModelProvider):
             result.append(litellm_msg)
         return result
 
-    def _initialize_cost_cache(self):
+    def _initialize_cost_cache(self) -> None:
         """Initialize the cost cache with common models."""
         # Common models with approximate costs (USD per million tokens)
         # Prices as of March 2026

@@ -9,6 +9,7 @@ import asyncio
 import logging
 import os
 import subprocess
+import types
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -545,8 +546,9 @@ class GitRepository:
         logger.info("GitRepository closed")
 
     # Context manager support
-    async def __aenter__(self):
+    async def __aenter__(self) -> "GitRepository":
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: types.TracebackType | None) -> bool | None:
         await self.close()
+        return None

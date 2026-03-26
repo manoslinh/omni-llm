@@ -136,7 +136,7 @@ class CostTracker:
             "total_tokens": self._total_tokens,
         }
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset all tracked costs."""
         self._records.clear()
         self._total_cost = 0.0

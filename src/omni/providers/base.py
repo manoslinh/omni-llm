@@ -88,7 +88,7 @@ class ModelProvider(ABC):
         model: str,
         temperature: float = 0.7,
         max_tokens: int | None = None,
-        **kwargs
+        **kwargs: Any
     ) -> ChatCompletion:
         """
         Send messages to the model and get a completion.
@@ -119,7 +119,7 @@ class ModelProvider(ABC):
         model: str,
         temperature: float = 0.7,
         max_tokens: int | None = None,
-        **kwargs
+        **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """
         Stream messages to the model and get a streaming response.
@@ -178,7 +178,7 @@ class ModelProvider(ABC):
         pass
 
     @abstractmethod
-    async def close(self):
+    async def close(self) -> None:
         """Clean up provider resources."""
         pass
 

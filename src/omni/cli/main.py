@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 @click.group()
 @click.version_option()
-def cli():
+def cli() -> None:
     """Omni-LLM: The orchestration OS for AI-assisted development."""
     pass
 
@@ -35,13 +35,13 @@ def cli():
 @click.option("--temperature", "-t", default=0.7, type=float, help="Temperature (0.0-2.0)")
 @click.option("--max-tokens", type=int, help="Maximum tokens to generate")
 @click.option("--mock", is_flag=True, help="Use mock provider for testing")
-def run(prompt: str, model: str, temperature: float, max_tokens: int | None, mock: bool):
+def run(prompt: str, model: str, temperature: float, max_tokens: int | None, mock: bool) -> None:
     """Run a single prompt through the model."""
     asyncio.run(_run_async(prompt, model, temperature, max_tokens, mock))
 
 
 @cli.command()
-def config():
+def config() -> None:
     """Configure Omni-LLM settings."""
     click.echo("Configuration management coming soon!")
     click.echo("For now, set environment variables:")
@@ -52,13 +52,13 @@ def config():
 
 
 @cli.command()
-def models():
+def models() -> None:
     """List available models."""
     asyncio.run(_list_models_async())
 
 
 @cli.command()
-def status():
+def status() -> None:
     """Show system status and configuration."""
     click.echo("Omni-LLM Status")
     click.echo("===============")
@@ -86,7 +86,7 @@ async def _run_async(
     temperature: float,
     max_tokens: int | None,
     mock: bool
-):
+) -> None:
     """Async implementation of the run command."""
     try:
         # Create provider
@@ -148,7 +148,7 @@ async def _run_async(
         sys.exit(1)
 
 
-async def _list_models_async():
+async def _list_models_async() -> None:
     """Async implementation of the models command."""
     try:
         # Try LiteLLM first
@@ -182,7 +182,7 @@ async def _list_models_async():
         await mock_provider.close()
 
 
-def main():
+def main() -> None:
     """Main entry point."""
     cli()
 

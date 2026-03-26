@@ -7,7 +7,7 @@ the task type and whose quality estimate meets the minimum threshold.
 """
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from omni.providers.config import DEFAULT_PROVIDERS_CONFIG_PATH, ConfigLoader
 
@@ -20,6 +20,9 @@ from .models import (
     TaskType,
 )
 from .strategy import RoutingStrategy
+
+if TYPE_CHECKING:
+    from .budget import BudgetTracker
 
 # Default models config path (relative to repo root)
 DEFAULT_MODELS_CONFIG_PATH = Path(DEFAULT_PROVIDERS_CONFIG_PATH).parent / "models.yaml"
@@ -124,6 +127,7 @@ class CostOptimizedStrategy(RoutingStrategy):
         self,
         models_path: Path | None = None,
         providers_path: Path | None = None,
+        budget_tracker: "BudgetTracker | None" = None,
     ) -> None:
         """
         Initialize strategy by loading model and cost configs.
@@ -131,6 +135,7 @@ class CostOptimizedStrategy(RoutingStrategy):
         Args:
             models_path: Path to models.yaml (uses default if None)
             providers_path: Path to providers.yaml (uses default if None)
+            budget_tracker: Optional BudgetTracker for budget enforcement
         """
         self._models: dict[str, dict[str, Any]] = _load_models_config(models_path)
         self._routing_rules: dict[str, dict[str, Any]] = _load_routing_rules(
@@ -139,6 +144,7 @@ class CostOptimizedStrategy(RoutingStrategy):
         self._cost_rates: dict[str, tuple[float, float]] = _load_cost_rates(
             providers_path
         )
+        self._budget_tracker = budget_tracker
 
     @property
     def name(self) -> str:
@@ -275,14 +281,23 @@ class CostOptimizedStrategy(RoutingStrategy):
 
         ranked = self.rank_models(task_type, context)
 
+        # Get budget remaining from context or budget tracker
+        budget_remaining = context.budget_remaining
+        if budget_remaining is None and self._budget_tracker is not None:
+            status = self._budget_tracker.get_budget_status()
+            budget_remaining = min(
+                status["session"]["remaining"],
+                status["daily"]["remaining"]
+            )
+
         for candidate in ranked:
             # Skip models below quality threshold
             if candidate.quality_estimate < min_quality:
                 continue
 
             # Check budget
-            if context.budget_remaining is not None:
-                if candidate.cost_estimate.total_cost_usd > context.budget_remaining:
+            if budget_remaining is not None:
+                if candidate.cost_estimate.total_cost_usd > budget_remaining:
                     continue
 
             # Found a suitable model
@@ -301,9 +316,9 @@ class CostOptimizedStrategy(RoutingStrategy):
             )
 
         # No model met the threshold — check if budget is the blocker
-        if context.budget_remaining is not None and context.budget_remaining <= 0:
+        if budget_remaining is not None and budget_remaining <= 0:
             raise BudgetExceededError(
-                budget_remaining=context.budget_remaining,
+                budget_remaining=budget_remaining,
                 estimated_cost=0.0,
             )
 

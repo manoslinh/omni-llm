@@ -1,0 +1,77 @@
+# Budget Configuration for Omni-LLM
+# Defines budget limits and warning thresholds
+
+# Budget limits (in USD)
+limits:
+  # Daily budget limit
+  daily_limit: 10.00
+  
+  # Per-session budget limit
+  per_session_limit: 2.00
+  
+  # Per-project budget limit (optional)
+  per_project_limit: 5.00
+
+# Warning thresholds (as fractions of limit)
+# When spending reaches these percentages, warnings are generated
+warning_thresholds:
+  - 0.80  # 80% - Warning
+  - 0.90  # 90% - High warning
+  - 0.95  # 95% - Critical warning
+
+# State persistence
+state:
+  # File path for budget state (relative to home directory)
+  state_file: ".omni-llm/budget_state.json"
+  
+  # Auto-save after each transaction
+  auto_save: true
+
+# Budget enforcement
+enforcement:
+  # Whether to enforce budget limits (true/false)
+  enabled: true
+  
+  # Whether to raise BudgetExceededError when limit exceeded
+  raise_on_exceeded: true
+  
+  # Minimum budget remaining before refusing new requests (USD)
+  minimum_remaining: 0.01
+
+# Session configuration
+session:
+  # Auto-generate session ID
+  auto_session_id: true
+  
+  # Session ID format (use {timestamp} for dynamic values)
+  session_id_format: "session-{timestamp}"
+
+# Project configuration
+project:
+  # Auto-detect project from git repository
+  auto_detect_project: true
+  
+  # Project ID format (use {repo_name} for dynamic values)
+  project_id_format: "{repo_name}"
+
+# Integration settings
+integration:
+  # Whether to integrate with CostOptimizedStrategy
+  with_cost_optimized_strategy: true
+  
+  # Whether to integrate with ModelRouter (when available)
+  with_model_router: true
+  
+  # Whether to track spending per request
+  track_per_request: true
+
+# Logging
+logging:
+  # Log budget events (warnings, exceeded)
+  enabled: true
+  
+  # Log level
+  level: "INFO"
+  
+  # Log file path (relative to home directory)
+  log_file: ".omni-llm/budget.log"

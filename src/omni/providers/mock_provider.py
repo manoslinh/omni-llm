@@ -115,14 +115,25 @@ class MockProvider(ModelProvider):
             finish_reason="stop",
         )
 
-    async def stream_chat_completion(  # type: ignore[override]
+    async def stream_chat_completion(
         self,
         messages: list[Message],
         model: str,
         temperature: float = 0.7,
         max_tokens: int | None = None,
         **kwargs: Any
-<<<<<<< HEAD
+    ) -> AsyncGenerator[str, None]:  # type: ignore
+        """
+        Stream a mock chat completion.
+
+        Args:
+            messages: List of messages in the conversation
+            model: Model identifier
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens to generate
+            **kwargs: Additional parameters
+
+        Returns:
             AsyncGenerator yielding chunks of the response
         """
         # Get the full response

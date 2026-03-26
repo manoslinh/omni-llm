@@ -201,14 +201,25 @@ class LiteLLMAdapter(ModelProvider):
             logger.error(f"Unexpected error calling LiteLLM for model {model}: {e}")
             raise ProviderError(f"Unexpected error for {model}: {e}") from e
 
-    async def stream_chat_completion(  # type: ignore[override]
+    async def stream_chat_completion(
         self,
         messages: list[Message],
         model: str,
         temperature: float = 0.7,
         max_tokens: int | None = None,
         **kwargs: Any,
-<<<<<<< HEAD
+    ) -> AsyncGenerator[str, None]:  # type: ignore[override]
+        """
+        Stream messages to the model via LiteLLM.
+
+        Args:
+            messages: List of messages in the conversation
+            model: Model identifier (e.g., "openai/gpt-4")
+            temperature: Sampling temperature (0.0 to 2.0)
+            max_tokens: Maximum tokens to generate
+            **kwargs: Additional LiteLLM parameters
+
+        Returns:
             AsyncGenerator yielding chunks of the response
 
         Raises:
@@ -292,7 +303,7 @@ class LiteLLMAdapter(ModelProvider):
             # LiteLLM's token_counter is synchronous
             import litellm
 
-            return litellm.token_counter(model=model, text=text)  # type: ignore[no-any-return]
+            return litellm.token_counter(model=model, text=text)
         except Exception as e:
             logger.warning(f"Failed to count tokens for {model}: {e}")
             # Fallback: rough estimate of 4 chars per token

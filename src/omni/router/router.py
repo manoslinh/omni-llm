@@ -27,6 +27,7 @@ from .models import (
     RoutingContext,
     TaskType,
 )
+from .provider_registry import Capability, ProviderRegistry
 from .strategy import RoutingStrategy
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,10 @@ class RouterConfig:
     # Strategy instances keyed by name
     strategies: dict[str, RoutingStrategy] = field(default_factory=dict)
 
-    # Provider instances keyed by model ID or provider name
+    # Provider registry for managing providers with capability discovery
+    provider_registry: ProviderRegistry | None = None
+
+    # Provider instances keyed by model ID or provider name (legacy support)
     providers: dict[str, ModelProvider] = field(default_factory=dict)
 
     # Fallback configuration
@@ -70,6 +74,18 @@ class RouterConfig:
             raise ValueError(f"backoff_base must be > 0, got {self.backoff_base}")
         if self.call_timeout <= 0:
             raise ValueError(f"call_timeout must be > 0, got {self.call_timeout}")
+
+        # Initialize provider registry if not provided
+        if self.provider_registry is None:
+            self.provider_registry = ProviderRegistry()
+
+        # Register legacy providers with the registry
+        for model_id, provider in self.providers.items():
+            try:
+                self.provider_registry.register(provider)
+                logger.debug(f"Registered legacy provider '{provider.name}' for model '{model_id}'")
+            except Exception as e:
+                logger.warning(f"Failed to register legacy provider '{provider.name}': {e}")
 
 
 @dataclass
@@ -121,13 +137,14 @@ class ModelRouter:
         """
         self.config = config
         self._strategy_cache: dict[str, RoutingStrategy] = {}
-        self._provider_cache: dict[str, ModelProvider] = {}
+        self._provider_cache: dict[str, ModelProvider] = {}  # Legacy cache for backward compatibility
         self._cost_tracker: dict[str, float] = {}  # model_id -> total_cost
 
         # Initialize caches
         for name, strategy in config.strategies.items():
             self._strategy_cache[name] = strategy
 
+        # Store legacy providers for backward compatibility
         for model_id, provider in config.providers.items():
             self._provider_cache[model_id] = provider
 
@@ -138,6 +155,10 @@ class ModelRouter:
                 self._strategy_cache["default"] = default_instance
             except Exception as e:
                 logger.warning(f"Failed to instantiate default strategy: {e}")
+
+        # Ensure provider registry is available
+        if config.provider_registry is None:
+            config.provider_registry = ProviderRegistry()
 
     def get_strategy(self, strategy_name: str | None = None) -> RoutingStrategy:
         """
@@ -180,11 +201,21 @@ class ModelRouter:
         Raises:
             ValueError: If no provider found for the model
         """
-        # Try exact match first
+        # First try legacy cache for backward compatibility
         if model_id in self._provider_cache:
             return self._provider_cache[model_id]
 
-        # Try to find a provider that can handle this model
+        # Try to find a provider using the registry
+        if self.config.provider_registry:
+            providers = self.config.provider_registry.get_providers_for_model(model_id)
+            if providers:
+                # Get the first provider (sorted by success rate)
+                provider_name = providers[0]
+                provider = self.config.provider_registry.get_provider(provider_name)
+                if provider:
+                    return provider
+
+        # Fallback to legacy heuristic
         for provider_id, provider in self._provider_cache.items():
             # Simple heuristic: if provider ID is in model ID or vice versa
             if provider_id in model_id or model_id in provider_id:
@@ -440,4 +471,91 @@ class ModelRouter:
             model_id: Model identifier
             provider: Provider instance
         """
+        # Legacy registration for backward compatibility
         self._provider_cache[model_id] = provider
+
+        # Also register with the provider registry if available
+        if self.config.provider_registry:
+            try:
+                self.config.provider_registry.register(provider)
+                logger.debug(f"Registered provider '{provider.name}' with registry")
+            except Exception as e:
+                logger.warning(f"Failed to register provider '{provider.name}' with registry: {e}")
+
+    # ProviderRegistry integration methods
+
+    def get_provider_registry(self) -> ProviderRegistry | None:
+        """Get the provider registry instance."""
+        return self.config.provider_registry
+
+    async def check_provider_health(self, provider_name: str | None = None) -> dict:
+        """
+        Check health of one or all providers.
+
+        Args:
+            provider_name: Name of specific provider to check, or None for all
+
+        Returns:
+            Dictionary with health check results
+        """
+        if not self.config.provider_registry:
+            return {}
+
+        if provider_name:
+            try:
+                result = await self.config.provider_registry.check_health(provider_name)
+                return {provider_name: result}
+            except KeyError:
+                return {}
+        else:
+            return await self.config.provider_registry.check_all_health()
+
+    def get_providers_by_capability(self, capability: str) -> list[str]:
+        """
+        Get providers that support a specific capability.
+
+        Args:
+            capability: Capability to filter by
+
+        Returns:
+            List of provider names
+        """
+        if not self.config.provider_registry:
+            return []
+
+        try:
+            cap_enum = Capability(capability)
+            return self.config.provider_registry.get_providers_by_capability(cap_enum)
+        except ValueError:
+            logger.warning(f"Unknown capability: {capability}")
+            return []
+
+    def get_provider_metadata(self, provider_name: str) -> dict | None:
+        """
+        Get metadata for a provider.
+
+        Args:
+            provider_name: Name of the provider
+
+        Returns:
+            Provider metadata as dictionary, or None if not found
+        """
+        if not self.config.provider_registry:
+            return None
+
+        metadata = self.config.provider_registry.get_metadata(provider_name)
+        if metadata:
+            # Convert to dictionary for easier consumption
+            return {
+                'name': metadata.name,
+                'provider_type': metadata.provider_type,
+                'description': metadata.description,
+                'capabilities': list(metadata.capabilities),
+                'supported_models': list(metadata.supported_models),
+                'avg_latency_ms': metadata.avg_latency_ms,
+                'success_rate': metadata.success_rate,
+                'status': metadata.status.value,
+                'status_message': metadata.status_message,
+                'last_checked': metadata.last_checked,
+            }
+        return None

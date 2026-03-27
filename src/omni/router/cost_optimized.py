@@ -19,6 +19,7 @@ from .models import (
     RoutingContext,
     TaskType,
 )
+from .provider_registry import ProviderRegistry
 from .strategy import RoutingStrategy
 
 if TYPE_CHECKING:
@@ -128,6 +129,7 @@ class CostOptimizedStrategy(RoutingStrategy):
         models_path: Path | None = None,
         providers_path: Path | None = None,
         budget_tracker: "BudgetTracker | None" = None,
+        provider_registry: "ProviderRegistry | None" = None,
     ) -> None:
         """
         Initialize strategy by loading model and cost configs.
@@ -136,6 +138,7 @@ class CostOptimizedStrategy(RoutingStrategy):
             models_path: Path to models.yaml (uses default if None)
             providers_path: Path to providers.yaml (uses default if None)
             budget_tracker: Optional BudgetTracker for budget enforcement
+            provider_registry: Optional ProviderRegistry for capability discovery
         """
         self._models: dict[str, dict[str, Any]] = _load_models_config(models_path)
         self._routing_rules: dict[str, dict[str, Any]] = _load_routing_rules(
@@ -145,10 +148,55 @@ class CostOptimizedStrategy(RoutingStrategy):
             providers_path
         )
         self._budget_tracker = budget_tracker
+        self._provider_registry = provider_registry
+
+        # Enhance model data with provider registry capabilities if available
+        if provider_registry:
+            self._enhance_models_with_capabilities()
 
     @property
     def name(self) -> str:
         return "cost_optimized"
+
+    def _enhance_models_with_capabilities(self) -> None:
+        """Enhance model data with capabilities from provider registry."""
+        if not self._provider_registry:
+            return
+
+        for model_short_id, model_cfg in self._models.items():
+            # Get full model ID
+            full_id = _SHORT_TO_MODEL_ID.get(model_short_id, model_short_id)
+
+            # Find providers that support this model
+            providers = self._provider_registry.get_providers_for_model(full_id)
+            if not providers:
+                continue
+
+            # Get capabilities from the first provider (sorted by success rate)
+            provider_name = providers[0]
+            metadata = self._provider_registry.get_metadata(provider_name)
+            if not metadata:
+                continue
+
+            # Add capabilities to model config
+            if metadata.capabilities:
+                if "capabilities" not in model_cfg:
+                    model_cfg["capabilities"] = []
+
+                # Add capabilities that aren't already listed
+                existing_caps = set(model_cfg.get("capabilities", []))
+                new_caps = {cap.value for cap in metadata.capabilities}
+                all_caps = existing_caps.union(new_caps)
+                model_cfg["capabilities"] = list(all_caps)
+
+            # Add provider performance metrics
+            if "performance" not in model_cfg:
+                model_cfg["performance"] = {}
+
+            perf = model_cfg["performance"]
+            perf["avg_latency_ms"] = metadata.avg_latency_ms
+            perf["success_rate"] = metadata.success_rate
+            perf["status"] = metadata.status.value
 
     def _get_task_routing_rules(self, task_type: TaskType) -> dict[str, Any]:
         """Get routing rules for a task type from models.yaml."""

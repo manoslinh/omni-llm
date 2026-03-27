@@ -418,7 +418,7 @@ class BudgetTracker:
                 if time.monotonic() >= deadline:
                     raise TimeoutError(
                         f"Could not acquire file lock within {self._LOCK_TIMEOUT}s"
-                    )
+                    ) from None
                 time.sleep(self._LOCK_RETRY_INTERVAL)
 
     def _save_state_unlocked(self) -> None:

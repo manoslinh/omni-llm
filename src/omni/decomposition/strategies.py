@@ -321,14 +321,17 @@ class RecursiveDecomposer(DecompositionStrategy):
         """Estimate complexity for a specific phase."""
         base = parent.effective_complexity
 
-        # Reduce complexity per phase (division of work)
-        reduction_factor = 0.6 / total_phases
+        # Reduce complexity per phase (division of work).
+        # Use 0.8/total_phases so that IMPLEMENTATION subtasks from
+        # high-complexity parents stay above the recursion threshold,
+        # enabling genuine recursive decomposition at depth > 0.
+        reduction_factor = 0.8 / total_phases
 
         # Different phases have different complexity profiles
         type_multipliers = {
             SubtaskType.PREPARATION: 0.5,
             SubtaskType.ANALYSIS: 0.8,
-            SubtaskType.IMPLEMENTATION: 1.0,
+            SubtaskType.IMPLEMENTATION: 1.2,
             SubtaskType.VALIDATION: 0.6,
             SubtaskType.INTEGRATION: 0.9,
             SubtaskType.CLEANUP: 0.3,

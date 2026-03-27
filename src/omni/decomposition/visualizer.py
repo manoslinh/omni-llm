@@ -47,11 +47,11 @@ class TaskGraphVisualizer:
             )
         self.task_graph = task_graph
 
-    def visualize(self, format: OutputFormat | str = OutputFormat.DOT) -> str:
+    def visualize(self, fmt: OutputFormat | str = OutputFormat.DOT) -> str:
         """Generate visualization in the specified format.
 
         Args:
-            format: Output format (DOT, MERMAID, or ASCII).
+            fmt: Output format (DOT, MERMAID, or ASCII).
 
         Returns:
             Visualization string in the requested format.
@@ -59,30 +59,30 @@ class TaskGraphVisualizer:
         Raises:
             ValueError: If format is not supported.
         """
-        if isinstance(format, str):
+        if isinstance(fmt, str):
             try:
-                format = OutputFormat(format)
+                fmt = OutputFormat(fmt)
             except ValueError:
                 # Try case-insensitive match
-                format_lower = format.lower()
-                for fmt in OutputFormat:
-                    if fmt.value.lower() == format_lower:
-                        format = fmt
+                fmt_lower = fmt.lower()
+                for format_enum in OutputFormat:
+                    if format_enum.value.lower() == fmt_lower:
+                        fmt = format_enum
                         break
                 else:
                     raise ValueError(
-                        f"Unsupported format: {format}. "
+                        f"Unsupported format: {fmt}. "
                         f"Supported formats: {list(OutputFormat)}"
                     )
 
-        if format == OutputFormat.DOT:
+        if fmt == OutputFormat.DOT:
             return self._to_dot()
-        elif format == OutputFormat.MERMAID:
+        elif fmt == OutputFormat.MERMAID:
             return self._to_mermaid()
-        elif format == OutputFormat.ASCII:
+        elif fmt == OutputFormat.ASCII:
             return self._to_ascii()
         else:
-            raise ValueError(f"Unhandled format: {format}")
+            raise ValueError(f"Unhandled format: {fmt}")
 
     def _to_dot(self) -> str:
         """Generate Graphviz DOT representation.
@@ -381,53 +381,102 @@ class TaskGraphVisualizer:
         }
         return icons.get(status, "?")
 
-    def save_to_file(self, filepath: str, format: OutputFormat | str = OutputFormat.DOT) -> None:
+    def save_to_file(self, filepath: str, fmt: OutputFormat | str = OutputFormat.DOT) -> None:
         """Save visualization to a file.
 
         Args:
             filepath: Path to save the visualization to.
-            format: Output format (DOT, MERMAID, or ASCII).
+            fmt: Output format (DOT, MERMAID, or ASCII).
 
         Raises:
             IOError: If file cannot be written.
         """
-        content = self.visualize(format)
+        content = self.visualize(fmt)
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(content)
 
     @classmethod
-    def from_file(cls, filepath: str, format: OutputFormat | str = OutputFormat.DOT) -> str:
+    def from_file(cls, filepath: str, fmt: OutputFormat | str = OutputFormat.DOT) -> str:
         """Read visualization from a file.
 
         This is a convenience method for reading previously saved visualizations.
 
         Args:
             filepath: Path to read the visualization from.
-            format: Format of the file (for validation).
+            fmt: Expected format of the file (for validation).
 
         Returns:
             Visualization content.
 
         Raises:
             IOError: If file cannot be read.
-            ValueError: If format doesn't match file extension.
+            ValueError: If format doesn't match file extension or content.
         """
+        # Validate format parameter
+        if isinstance(fmt, str):
+            try:
+                fmt = OutputFormat(fmt)
+            except ValueError:
+                # Try case-insensitive match
+                fmt_lower = fmt.lower()
+                for format_enum in OutputFormat:
+                    if format_enum.value.lower() == fmt_lower:
+                        fmt = format_enum
+                        break
+                else:
+                    raise ValueError(
+                        f"Unsupported format: {fmt}. "
+                        f"Supported formats: {list(OutputFormat)}"
+                    )
+
+        # Check file extension matches expected format
+        import os
+        ext = os.path.splitext(filepath)[1].lower()
+        expected_extensions = {
+            OutputFormat.DOT: ['.dot', '.gv'],
+            OutputFormat.MERMAID: ['.mmd', '.mermaid'],
+            OutputFormat.ASCII: ['.txt', '.ascii']
+        }
+
+        if fmt in expected_extensions and ext not in expected_extensions[fmt]:
+            raise ValueError(
+                f"File extension '{ext}' doesn't match expected format '{fmt.value}'. "
+                f"Expected extensions: {expected_extensions[fmt]}"
+            )
+
         with open(filepath, encoding="utf-8") as f:
-            return f.read()
+            content = f.read()
+
+        # Basic content validation based on format
+        if fmt == OutputFormat.DOT:
+            if not content.strip().startswith("digraph"):
+                raise ValueError(
+                    f"File content doesn't appear to be valid DOT format. "
+                    f"Expected 'digraph' at beginning, got: {content[:50]}..."
+                )
+        elif fmt == OutputFormat.MERMAID:
+            if "graph" not in content.lower() and "flowchart" not in content.lower():
+                raise ValueError(
+                    "File content doesn't appear to be valid Mermaid format. "
+                    "Expected 'graph' or 'flowchart' directive."
+                )
+        # ASCII format is harder to validate, so we'll just return it
+
+        return content
 
 
 def visualize_task_graph(
     task_graph: TaskGraph,
-    format: OutputFormat | str = OutputFormat.DOT
+    fmt: OutputFormat | str = OutputFormat.DOT
 ) -> str:
     """Convenience function to visualize a TaskGraph.
 
     Args:
         task_graph: The TaskGraph to visualize.
-        format: Output format (DOT, MERMAID, or ASCII).
+        fmt: Output format (DOT, MERMAID, or ASCII).
 
     Returns:
         Visualization string in the requested format.
     """
-    return TaskGraphVisualizer(task_graph).visualize(format)
+    return TaskGraphVisualizer(task_graph).visualize(fmt)
 

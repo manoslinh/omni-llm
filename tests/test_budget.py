@@ -125,7 +125,8 @@ class TestBudgetTrackerInit:
             config = BudgetConfig(state_file=state_file)
             tracker = BudgetTracker(config=config, session_id="test-session", project_id="test-project")
 
-            assert tracker.state.daily_spent == 5.0
+            # Daily spent should be reset to 0 because last_reset_date is yesterday
+            assert tracker.state.daily_spent == 0.0
             assert tracker.state.session_spent == 1.0
 
     def test_resets_daily_budget_on_new_day(self, budget_config: BudgetConfig) -> None:
@@ -313,7 +314,8 @@ class TestStatePersistence:
             config = BudgetConfig(state_file=state_file)
             tracker = BudgetTracker(config=config, session_id="test-session", project_id="test-project")
 
-            assert tracker.state.daily_spent == 3.0
+            # Daily spent should be reset to 0 because last_reset_date is yesterday
+            assert tracker.state.daily_spent == 0.0
             assert tracker.state.session_spent == 1.5
 
 

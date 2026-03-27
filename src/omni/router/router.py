@@ -15,8 +15,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-
-from omni.models.provider import CompletionResult, Message, ModelProvider
+from typing import Any
 
 from .errors import AllModelsFailedError, BudgetExceededError, NoEligibleModelError
 from .models import (
@@ -27,7 +26,7 @@ from .models import (
     RoutingContext,
     TaskType,
 )
-from .provider_registry import Capability, ProviderRegistry
+from .provider_registry import Capability, ModelProvider, ProviderRegistry
 from .strategy import RoutingStrategy
 
 logger = logging.getLogger(__name__)
@@ -96,7 +95,7 @@ class RouterResult:
     model_id: str
 
     # The completion result
-    completion: CompletionResult
+    completion: Any
 
     # Total cost in USD
     total_cost_usd: float
@@ -299,7 +298,7 @@ class ModelRouter:
 
     async def complete(
         self,
-        messages: list[Message],
+        messages: list[Any],
         task_type: TaskType,
         context: RoutingContext,
         strategy_name: str | None = None,

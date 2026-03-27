@@ -9,39 +9,42 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any
-
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
 class ModelProvider(Protocol):
     """Protocol for model providers."""
-    
+
     @property
     def name(self) -> str:
         ...
-    
+
+    # These properties are optional for backward compatibility
     @property
     def supports_streaming(self) -> bool:
         ...
-    
+
     @property
-    def cost_per_token(self) -> dict:
+    def cost_per_token(self) -> dict[str, Any]:
         ...
-    
-    async def chat_completion(self, messages, model, **kwargs):
+
+    async def complete(
+        self,
+        messages: list[Any],
+        model: str,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        **kwargs: Any
+    ) -> Any:
         ...
-    
-    async def stream_chat_completion(self, messages, model, **kwargs):
-        ...
-    
+
     def count_tokens(self, text: str, model: str) -> int:
         ...
-    
+
     def estimate_cost(self, input_tokens: int, output_tokens: int, model: str) -> float:
         ...
-    
+
     async def close(self) -> None:
         ...
 
@@ -336,9 +339,16 @@ class ProviderRegistry:
             # Simple health check: try to get provider properties
             # This tests basic connectivity without making actual API calls
             _ = provider.name
-            _ = provider.supports_streaming
-            _ = provider.cost_per_token
-            
+            # Try to access optional properties
+            try:
+                _ = provider.supports_streaming
+            except AttributeError:
+                pass  # Optional property
+            try:
+                _ = provider.cost_per_token
+            except AttributeError:
+                pass  # Optional property
+
             latency_ms = (time.time() - start_time) * 1000
             success = True
             message = "Health check passed"
@@ -432,18 +442,24 @@ class ProviderRegistry:
         This is a basic implementation that can be extended with
         more sophisticated discovery logic.
         """
-        # Check for streaming support
-        if provider.supports_streaming:
-            metadata.capabilities.add(Capability.STREAMING)
+        # Check for streaming support (handle providers that don't have this property)
+        try:
+            if provider.supports_streaming:
+                metadata.capabilities.add(Capability.STREAMING)
+        except AttributeError:
+            logger.debug(f"Provider '{provider_name}' doesn't have supports_streaming property")
 
         # Check cost per token to infer supported models
-        cost_data = provider.cost_per_token
-        if cost_data:
-            metadata.cost_per_token = {
-                model_id: (rate.input_per_million, rate.output_per_million)
-                for model_id, rate in cost_data.items()
-            }
-            metadata.supported_models.update(cost_data.keys())
+        try:
+            cost_data = provider.cost_per_token
+            if cost_data:
+                metadata.cost_per_token = {
+                    model_id: (rate.input_per_million, rate.output_per_million)
+                    for model_id, rate in cost_data.items()
+                }
+                metadata.supported_models.update(cost_data.keys())
+        except AttributeError:
+            logger.debug(f"Provider '{provider_name}' doesn't have cost_per_token property")
 
         # TODO: More sophisticated capability discovery
         # - Test function calling with a simple test
@@ -465,7 +481,7 @@ class ProviderRegistry:
                 self._model_index[model_id] = set()
             self._model_index[model_id].add(provider_name)
 
-    def update_metadata(self, provider_name: str, **kwargs) -> None:
+    def update_metadata(self, provider_name: str, **kwargs: Any) -> None:
         """
         Update metadata for a registered provider.
 

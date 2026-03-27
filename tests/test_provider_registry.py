@@ -6,9 +6,9 @@ Tests for Provider Registry & Capability Discovery.
 import pytest
 
 from omni.providers.base import CostRate
-from omni.router.provider_registry import ModelProvider
 from omni.router.provider_registry import (
     Capability,
+    ModelProvider,
     ProviderHealthCheck,
     ProviderMetadata,
     ProviderRegistry,
@@ -39,7 +39,7 @@ class MockProvider(ModelProvider):
     def cost_per_token(self) -> dict[str, CostRate]:
         return self._cost_per_token
 
-    async def chat_completion(self, messages, model, temperature=0.7, max_tokens=None, **kwargs):
+    async def complete(self, messages, model, temperature=0.7, max_tokens=None, **kwargs):
         # Mock implementation
         from omni.providers.base import ChatCompletion, TokenUsage
         return ChatCompletion(
@@ -48,12 +48,16 @@ class MockProvider(ModelProvider):
             usage=TokenUsage(prompt_tokens=10, completion_tokens=20, total_tokens=30),
             finish_reason="stop"
         )
-    
+
+    async def chat_completion(self, messages, model, temperature=0.7, max_tokens=None, **kwargs):
+        # Alias for complete() for providers/base.py interface
+        return await self.complete(messages, model, temperature, max_tokens, **kwargs)
+
     async def stream_chat_completion(self, messages, model, temperature=0.7, max_tokens=None, **kwargs):
         # Mock implementation
         async def _stream():
             yield "Mock stream response"
-        
+
         async for chunk in _stream():
             yield chunk
 

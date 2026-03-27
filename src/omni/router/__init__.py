@@ -6,8 +6,10 @@ This package provides:
 - RoutingStrategy: Abstract interface for pluggable routing strategies
 - Data models: TaskType, ModelSelection, CostEstimate, etc.
 - Errors: Router-specific exceptions for budget and eligibility failures
+- Budget: Budget tracking and enforcement system
 """
 
+from .budget import BudgetConfig, BudgetTracker
 from .cost_optimized import CostOptimizedStrategy
 from .errors import (
     AllModelsFailedError,
@@ -34,6 +36,9 @@ __all__ = [
     # Strategies
     "RoutingStrategy",
     "CostOptimizedStrategy",
+    # Budget
+    "BudgetConfig",
+    "BudgetTracker",
     # Data models
     "TaskType",
     "ModelSelection",

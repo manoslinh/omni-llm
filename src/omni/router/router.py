@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from omni.models.provider import CompletionResult, Message, ModelProvider
 
 from .errors import AllModelsFailedError, BudgetExceededError, NoEligibleModelError
+from .health import CircuitOpenError, HealthConfig, HealthManager
 from .models import (
     CostEstimate,
     FallbackConfig,
@@ -59,6 +60,9 @@ class RouterConfig:
 
     # Whether to enable cost tracking
     enable_cost_tracking: bool = True
+
+    # Health monitoring configuration (None to disable)
+    health_config: HealthConfig | None = None
 
     def __post_init__(self) -> None:
         """Validate router configuration."""
@@ -123,6 +127,11 @@ class ModelRouter:
         self._strategy_cache: dict[str, RoutingStrategy] = {}
         self._provider_cache: dict[str, ModelProvider] = {}
         self._cost_tracker: dict[str, float] = {}  # model_id -> total_cost
+
+        # Health monitoring
+        self._health_manager: HealthManager | None = None
+        if config.health_config is not None:
+            self._health_manager = HealthManager(config.health_config)
 
         # Initialize caches
         for name, strategy in config.strategies.items():
@@ -296,7 +305,7 @@ class ModelRouter:
         Raises:
             AllModelsFailedError: If all models in the fallback chain fail
         """
-        start_time = time.time()
+        start_time = time.monotonic()
         errors: list[Exception] = []
         total_attempts = 0
 
@@ -328,6 +337,18 @@ class ModelRouter:
                             budget_remaining=context.budget_remaining,
                             estimated_cost=cost_est.total_cost_usd,
                         )
+                    )
+                    continue
+
+            # Health check — skip providers with OPEN circuit breaker
+            if self._health_manager is not None:
+                breaker = self._health_manager.get_breaker(model_id)
+                if not breaker.is_available:
+                    logger.warning(
+                        f"Model {model_id} circuit breaker is {breaker.state.value}, skipping"
+                    )
+                    errors.append(
+                        CircuitOpenError(model_id, breaker.state)
                     )
                     continue
 
@@ -366,8 +387,15 @@ class ModelRouter:
                             self._cost_tracker.get(model_id, 0.0) + total_cost
                         )
 
+                    # Record health success
+                    if self._health_manager is not None:
+                        elapsed_call = time.monotonic() - start_time
+                        self._health_manager.monitor.record_call(
+                            model_id, latency=elapsed_call, success=True
+                        )
+
                     # Success!
-                    elapsed = time.time() - start_time
+                    elapsed = time.monotonic() - start_time
                     return RouterResult(
                         model_id=model_id,
                         completion=completion,
@@ -379,11 +407,19 @@ class ModelRouter:
                         errors=errors,
                     )
 
+                except CircuitOpenError:
+                    # Don't count circuit-open as a provider failure
+                    raise
                 except Exception as e:
                     logger.warning(
                         f"Attempt {retry + 1} failed for model {model_id}: {e}"
                     )
                     errors.append(e)
+
+                    # Record health failure
+                    if self._health_manager is not None:
+                        breaker = self._health_manager.get_breaker(model_id)
+                        breaker.record_failure(e)
 
                     # If we have retries left, wait with exponential backoff
                     if retry < self.config.max_retries_per_model:
@@ -398,7 +434,7 @@ class ModelRouter:
             total_attempts += self.config.max_retries_per_model + 1
 
         # All models failed
-        elapsed = time.time() - start_time
+        elapsed = time.monotonic() - start_time
         raise AllModelsFailedError(
             model_ids=fallback_chain,
             last_error=errors[-1] if errors else None,

@@ -25,6 +25,7 @@ from omni.router import (
     CostEstimate,
     CostOptimizedStrategy,
     FallbackConfig,
+    HealthConfig,
     ModelRouter,
     NoEligibleModelError,
     RouterConfig,
@@ -875,6 +876,171 @@ class TestConfiguration:
         assert config.call_timeout == 120.0
         assert config.enable_cost_tracking is False
         assert config.fallback_config == fallback
+
+
+# ── Health Monitoring Integration Tests ────────────────────────────────────
+
+
+class TestHealthIntegration:
+    """Tests for health monitoring integration with ModelRouter."""
+
+    @pytest.fixture
+    def health_config(self) -> HealthConfig:
+        """Fast health config for testing."""
+        return HealthConfig(
+            window_size=20,
+            window_duration_seconds=60.0,
+            error_rate_threshold=0.5,
+            latency_threshold_seconds=5.0,
+            min_requests_for_threshold=3,
+            recovery_timeout_seconds=0.5,
+            half_open_max_requests=2,
+            half_open_success_threshold=1,
+        )
+
+    @pytest.fixture
+    def healthy_router(self, health_config: HealthConfig) -> tuple[ModelRouter, MagicMock]:
+        """Router with health monitoring enabled."""
+        mock_strategy = MagicMock()
+        mock_strategy.name = "mock-strategy"
+        mock_strategy.rank_models.return_value = [
+            MagicMock(model_id="model-a", score=0.9),
+            MagicMock(model_id="model-b", score=0.5),
+        ]
+        mock_strategy.estimate_cost.return_value = CostEstimate(
+            input_tokens=100, output_tokens=50, total_cost_usd=0.001
+        )
+
+        provider_a = MagicMock()
+        provider_a.__class__.__name__ = "ProviderA"
+        provider_a.complete = AsyncMock(
+            return_value=CompletionResult(
+                content="Success from A",
+                model="model-a",
+                usage=TokenUsage(prompt_tokens=100, completion_tokens=50, total_tokens=150),
+            )
+        )
+
+        provider_b = MagicMock()
+        provider_b.__class__.__name__ = "ProviderB"
+        provider_b.complete = AsyncMock(
+            return_value=CompletionResult(
+                content="Success from B",
+                model="model-b",
+                usage=TokenUsage(prompt_tokens=100, completion_tokens=50, total_tokens=150),
+            )
+        )
+
+        config = RouterConfig(
+            strategies={"mock": mock_strategy},
+            providers={"model-a": provider_a, "model-b": provider_b},
+            health_config=health_config,
+            max_retries_per_model=1,
+            backoff_base=0.01,
+            call_timeout=10.0,
+        )
+        router = ModelRouter(config)
+        return router, mock_strategy
+
+    def test_health_manager_initialized(self, healthy_router: tuple[ModelRouter, MagicMock]) -> None:
+        """HealthManager should be initialized when health_config is set."""
+        router, _ = healthy_router
+        assert router._health_manager is not None
+
+    def test_no_health_manager_without_config(self) -> None:
+        """HealthManager should be None without health_config."""
+        config = RouterConfig()
+        router = ModelRouter(config)
+        assert router._health_manager is None
+
+    @pytest.mark.asyncio
+    async def test_records_success_on_completion(
+        self, healthy_router: tuple[ModelRouter, MagicMock]
+    ) -> None:
+        """Should record health success after successful completion."""
+        router, strategy = healthy_router
+        context = RoutingContext(task_type=TaskType.CODING)
+
+        result = await router.complete(
+            messages=[],
+            task_type=TaskType.CODING,
+            context=context,
+            fallback_chain=["model-a"],
+        )
+
+        assert result.model_id == "model-a"
+        metrics = router._health_manager.monitor.get_metrics("model-a")
+        assert metrics.successful_requests == 1
+
+    @pytest.mark.asyncio
+    async def test_records_failure_on_error(
+        self, healthy_router: tuple[ModelRouter, MagicMock]
+    ) -> None:
+        """Should record health failure after provider error."""
+        router, _ = healthy_router
+        # Make provider A fail
+        router._provider_cache["model-a"].complete.side_effect = RuntimeError("Provider down")
+        context = RoutingContext(task_type=TaskType.CODING)
+
+        result = await router.complete(
+            messages=[],
+            task_type=TaskType.CODING,
+            context=context,
+            fallback_chain=["model-a", "model-b"],
+        )
+
+        # Should have fallen back to model-b
+        assert result.model_id == "model-b"
+        # model-a should have recorded failure via breaker
+        breaker = router._health_manager.get_breaker("model-a")
+        assert breaker._failure_count > 0
+
+    @pytest.mark.asyncio
+    async def test_skips_open_circuit(
+        self, healthy_router: tuple[ModelRouter, MagicMock]
+    ) -> None:
+        """Should skip providers with OPEN circuit breaker."""
+        router, _ = healthy_router
+        context = RoutingContext(task_type=TaskType.CODING)
+
+        # Force model-a's circuit open
+        breaker = router._health_manager.get_breaker("model-a")
+        for _ in range(3):
+            breaker.record_failure()
+
+        result = await router.complete(
+            messages=[],
+            task_type=TaskType.CODING,
+            context=context,
+            fallback_chain=["model-a", "model-b"],
+        )
+
+        # Should skip model-a and use model-b
+        assert result.model_id == "model-b"
+        # model-a's provider should not have been called
+        router._provider_cache["model-a"].complete.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_all_circuits_open_raises(
+        self, healthy_router: tuple[ModelRouter, MagicMock]
+    ) -> None:
+        """Should raise AllModelsFailedError when all circuits are open."""
+        router, _ = healthy_router
+        context = RoutingContext(task_type=TaskType.CODING)
+
+        # Force all circuits open
+        for model_id in ["model-a", "model-b"]:
+            breaker = router._health_manager.get_breaker(model_id)
+            for _ in range(3):
+                breaker.record_failure()
+
+        with pytest.raises(AllModelsFailedError):
+            await router.complete(
+                messages=[],
+                task_type=TaskType.CODING,
+                context=context,
+                fallback_chain=["model-a", "model-b"],
+            )
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ This package provides:
 - Data models: TaskType, ModelSelection, CostEstimate, etc.
 - Errors: Router-specific exceptions for budget and eligibility failures
 - Budget: Budget tracking and enforcement system
+- Health: Health monitoring and circuit breaker for provider resilience
 """
 
 from .budget import BudgetConfig, BudgetTracker
@@ -17,6 +18,16 @@ from .errors import (
     BudgetExceededError,
     NoEligibleModelError,
     RouterError,
+)
+from .health import (
+    CircuitBreaker,
+    CircuitOpenError,
+    CircuitState,
+    HealthConfig,
+    HealthManager,
+    HealthMetrics,
+    HealthMonitor,
+    ResilientProvider,
 )
 from .models import (
     CostEstimate,
@@ -53,6 +64,15 @@ __all__ = [
     # Budget
     "BudgetConfig",
     "BudgetTracker",
+    # Health monitoring & circuit breaker
+    "CircuitBreaker",
+    "CircuitOpenError",
+    "CircuitState",
+    "HealthConfig",
+    "HealthManager",
+    "HealthMetrics",
+    "HealthMonitor",
+    "ResilientProvider",
     # Data models
     "TaskType",
     "ModelSelection",

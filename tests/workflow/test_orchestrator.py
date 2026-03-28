@@ -9,7 +9,6 @@ from src.omni.workflow.definition import WorkflowDefinition
 from src.omni.workflow.nodes import NodeEdge, NodeType, WorkflowNode
 from src.omni.workflow.orchestrator import (
     OrchestratorConfig,
-    WorkflowExecution,
     WorkflowOrchestrator,
     execute_workflow,
     get_orchestrator,
@@ -76,7 +75,7 @@ class TestWorkflowOrchestrator:
     def test_cancel_execution(self):
         orch = WorkflowOrchestrator()
         wf = _simple_workflow()
-        execution = orch.execute_workflow(wf, execution_id="cancel_test")
+        orch.execute_workflow(wf, execution_id="cancel_test")
         # Already completed, so cancel returns False
         assert not orch.cancel_execution("cancel_test")
         assert orch.cancel_execution("nonexistent") is False
@@ -127,7 +126,7 @@ class TestWorkflowOrchestrator:
         orch.execute_workflow(wf1, execution_id="e1")
         orch.execute_workflow(wf2, execution_id="e2")
 
-        all_execs = orch.list_executions()
+        orch.list_executions()
         wf1_execs = orch.list_executions(workflow_id="test_wf")
         assert len(wf1_execs) >= 1
 
@@ -156,7 +155,7 @@ class TestWorkflowOrchestrator:
     def test_emit_custom_event(self):
         orch = WorkflowOrchestrator()
         wf = _simple_workflow()
-        execution = orch.execute_workflow(wf, execution_id="custom_event_test")
+        orch.execute_workflow(wf, execution_id="custom_event_test")
 
         events = []
         orch.add_observer(lambda e: events.append(e))

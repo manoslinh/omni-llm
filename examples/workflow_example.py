@@ -6,8 +6,8 @@ This example shows how to create and execute a workflow with
 conditional branching, loops, and error handling.
 """
 
-import sys
 import os
+import sys
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -17,21 +17,20 @@ from omni.workflow import (
     Condition,
     NodeEdge,
     NodeType,
+    OrchestratorConfig,
     WorkflowDefinition,
     WorkflowNode,
     WorkflowOrchestrator,
-    OrchestratorConfig,
-    execute_template,
     get_template_registry,
 )
 
 
 def create_simple_workflow() -> WorkflowDefinition:
     """Create a simple workflow with conditional branching."""
-    
+
     # Create nodes
     nodes = {}
-    
+
     # Start node
     nodes["start"] = WorkflowNode(
         node_id="start",
@@ -40,7 +39,7 @@ def create_simple_workflow() -> WorkflowDefinition:
         task_id="analyze_requirements",
         agent_id="thinker",
     )
-    
+
     # Decision node (IF)
     nodes["decision"] = WorkflowNode(
         node_id="decision",
@@ -53,7 +52,7 @@ def create_simple_workflow() -> WorkflowDefinition:
         true_branch=["complex_path"],
         false_branch=["simple_path"],
     )
-    
+
     # Complex path
     nodes["complex_path"] = WorkflowNode(
         node_id="complex_path",
@@ -62,7 +61,7 @@ def create_simple_workflow() -> WorkflowDefinition:
         task_id="implement_complex",
         agent_id="coder",
     )
-    
+
     # Simple path
     nodes["simple_path"] = WorkflowNode(
         node_id="simple_path",
@@ -71,7 +70,7 @@ def create_simple_workflow() -> WorkflowDefinition:
         task_id="implement_simple",
         agent_id="intern",
     )
-    
+
     # Merge point
     nodes["merge"] = WorkflowNode(
         node_id="merge",
@@ -80,13 +79,13 @@ def create_simple_workflow() -> WorkflowDefinition:
         task_id="merge_results",
         agent_id="reader",
     )
-    
+
     # Set up edges
     nodes["start"].edges = [NodeEdge(target_node_id="decision")]
     nodes["decision"].edges = []  # Branches handled by IF node
     nodes["complex_path"].edges = [NodeEdge(target_node_id="merge")]
     nodes["simple_path"].edges = [NodeEdge(target_node_id="merge")]
-    
+
     # Create workflow definition
     workflow = WorkflowDefinition(
         workflow_id="example_workflow",
@@ -97,15 +96,15 @@ def create_simple_workflow() -> WorkflowDefinition:
         variables={"complexity": 0.8},  # Will take complex path
         description="Example workflow demonstrating conditional branching",
     )
-    
+
     return workflow
 
 
 def create_loop_workflow() -> WorkflowDefinition:
     """Create a workflow with a WHILE loop."""
-    
+
     nodes = {}
-    
+
     # Setup node
     nodes["setup"] = WorkflowNode(
         node_id="setup",
@@ -113,7 +112,7 @@ def create_loop_workflow() -> WorkflowDefinition:
         label="Setup Retry Counter",
         task_id="setup_retry",
     )
-    
+
     # WHILE loop node
     nodes["retry_loop"] = WorkflowNode(
         node_id="retry_loop",
@@ -126,7 +125,7 @@ def create_loop_workflow() -> WorkflowDefinition:
         loop_body=["attempt_task"],
         max_iterations=3,
     )
-    
+
     # Task to attempt
     nodes["attempt_task"] = WorkflowNode(
         node_id="attempt_task",
@@ -134,7 +133,7 @@ def create_loop_workflow() -> WorkflowDefinition:
         label="Attempt Task",
         task_id="attempt_with_retry",
     )
-    
+
     # Success handler
     nodes["success"] = WorkflowNode(
         node_id="success",
@@ -142,7 +141,7 @@ def create_loop_workflow() -> WorkflowDefinition:
         label="Handle Success",
         task_id="handle_success",
     )
-    
+
     # Failure handler
     nodes["failure"] = WorkflowNode(
         node_id="failure",
@@ -150,7 +149,7 @@ def create_loop_workflow() -> WorkflowDefinition:
         label="Handle Failure",
         task_id="handle_failure",
     )
-    
+
     # Decision node after loop
     nodes["check_result"] = WorkflowNode(
         node_id="check_result",
@@ -163,11 +162,11 @@ def create_loop_workflow() -> WorkflowDefinition:
         true_branch=["success"],
         false_branch=["failure"],
     )
-    
+
     # Set up edges
     nodes["setup"].edges = [NodeEdge(target_node_id="retry_loop")]
     nodes["retry_loop"].edges = [NodeEdge(target_node_id="check_result")]
-    
+
     workflow = WorkflowDefinition(
         workflow_id="loop_workflow",
         name="Workflow with Retry Loop",
@@ -176,14 +175,14 @@ def create_loop_workflow() -> WorkflowDefinition:
         exit_node_ids=["success", "failure"],
         description="Example workflow with WHILE loop for retries",
     )
-    
+
     return workflow
 
 
 def main():
     """Run workflow examples."""
     print("=== P2-15 Workflow Orchestration Examples ===\n")
-    
+
     # Create orchestrator
     config = OrchestratorConfig(
         default_max_concurrent_tasks=3,
@@ -191,59 +190,59 @@ def main():
         validate_before_execution=True,
     )
     orchestrator = WorkflowOrchestrator(config)
-    
+
     # Example 1: Simple workflow with conditional branching
     print("1. Creating simple workflow with conditional branching...")
     simple_workflow = create_simple_workflow()
-    
+
     # Validate workflow
     issues = simple_workflow.validate()
     if issues:
         print(f"  Validation issues: {issues}")
     else:
         print("  ✓ Workflow validation passed")
-    
+
     # Execute workflow
     print("  Executing workflow...")
     execution = orchestrator.execute_workflow(simple_workflow)
-    
+
     print(f"  Execution ID: {execution.execution_id}")
     print(f"  Status: {execution.status}")
     print(f"  Success: {execution.result.success if execution.result else 'N/A'}")
     print()
-    
+
     # Example 2: Workflow with loop
     print("2. Creating workflow with WHILE loop...")
     loop_workflow = create_loop_workflow()
-    
+
     issues = loop_workflow.validate()
     if issues:
         print(f"  Validation issues: {issues}")
     else:
         print("  ✓ Workflow validation passed")
-    
+
     print("  Executing workflow...")
     execution = orchestrator.execute_workflow(loop_workflow)
-    
+
     print(f"  Execution ID: {execution.execution_id}")
     print(f"  Status: {execution.status}")
     print(f"  Success: {execution.result.success if execution.result else 'N/A'}")
     print()
-    
+
     # Example 3: Using built-in templates
     print("3. Using built-in workflow templates...")
     registry = get_template_registry()
     templates = registry.list()
-    
+
     print(f"  Available templates: {len(templates)}")
     for template in templates[:3]:  # Show first 3
         print(f"    - {template.name} ({template.template_id})")
-    
+
     # Try to execute a template
     if templates:
         template = templates[0]  # First template
         print(f"\n  Executing template: {template.name}...")
-        
+
         try:
             execution = orchestrator.execute_template(
                 template_id=template.template_id,
@@ -252,7 +251,7 @@ def main():
             print(f"  Template execution: {execution.status}")
         except Exception as e:
             print(f"  Template execution failed (expected for demo): {e}")
-    
+
     print("\n=== Examples Complete ===")
 
 

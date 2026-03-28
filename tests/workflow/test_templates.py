@@ -5,9 +5,7 @@ Tests for workflow templates.
 import pytest
 
 from src.omni.workflow.definition import WorkflowDefinition
-from src.omni.workflow.nodes import NodeType
 from src.omni.workflow.templates import (
-    TemplateParameter,
     TemplateRegistry,
     WorkflowTemplate,
     get_template,

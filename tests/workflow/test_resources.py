@@ -2,7 +2,6 @@
 Tests for resource management.
 """
 
-import pytest
 
 from src.omni.workflow.resources import (
     ConcurrencyLimiter,

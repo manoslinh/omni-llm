@@ -5,7 +5,11 @@ Tests for expression evaluator.
 import pytest
 
 from src.omni.workflow.context import WorkflowContext
-from src.omni.workflow.evaluator import ExpressionEvaluator, evaluate_condition, evaluate_collection
+from src.omni.workflow.evaluator import (
+    ExpressionEvaluator,
+    evaluate_collection,
+    evaluate_condition,
+)
 from src.omni.workflow.nodes import Condition, ConditionEvaluationError
 
 

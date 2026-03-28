@@ -5,23 +5,19 @@ Tests cover: sequential execution, control flow, loops (WHILE/FOR_EACH),
 TRY_CATCH error handling, compensation, and edge cases.
 """
 
-import pytest
 
 from src.omni.workflow.context import NodeStatus, WorkflowContext
 from src.omni.workflow.definition import WorkflowDefinition
-from src.omni.workflow.evaluator import ExpressionEvaluator
 from src.omni.workflow.nodes import (
     CompensationAction,
     Condition,
     EdgeType,
     NodeEdge,
     NodeType,
-    ResourceConstraint,
     WorkflowNode,
 )
 from src.omni.workflow.state_machine import (
     ExecutionEventType,
-    ExecutionResult,
     WorkflowStateMachine,
 )
 
@@ -183,7 +179,7 @@ class TestIfNode:
         wf = _make_definition(nodes, entry="if1", exits=["yes_task", "no_task"])
         ctx = _make_context(variables={"go": True})
         sm = WorkflowStateMachine(wf, ctx)
-        result = sm.execute()
+        sm.execute()
 
         # IF node itself succeeds (schedules its branch)
         assert ctx.get_node_result("if1").status == NodeStatus.SUCCESS
@@ -207,7 +203,7 @@ class TestIfNode:
         wf = _make_definition(nodes, entry="if1", exits=["yes_task", "no_task"])
         ctx = _make_context(variables={"go": False})
         sm = WorkflowStateMachine(wf, ctx)
-        result = sm.execute()
+        sm.execute()
 
         # IF node itself succeeds
         assert ctx.get_node_result("if1").status == NodeStatus.SUCCESS
@@ -386,9 +382,6 @@ class TestForEachLoop:
 
     def test_for_each_variables_set(self):
         """FOR_EACH should set element and index variables."""
-        observed_items = []
-        observed_indices = []
-
         nodes = {
             "foreach": WorkflowNode(
                 node_id="foreach",
@@ -588,7 +581,7 @@ class TestStateMachineEvents:
         wf = _make_definition(nodes, entry="t", exits=["t"])
         ctx = _make_context()
         sm = WorkflowStateMachine(wf, ctx, observers=[received.append])
-        result = sm.execute()
+        sm.execute()
 
         assert len(received) > 0
         assert any(e.event_type == ExecutionEventType.NODE_STARTED for e in received)

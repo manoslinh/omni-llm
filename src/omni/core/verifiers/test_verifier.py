@@ -4,6 +4,7 @@ TestVerifier - Test execution verification using pytest.
 
 import asyncio
 import logging
+import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -49,7 +50,7 @@ class TestVerifier(Verifier):
             coverage: Whether to generate coverage report
             junit_report: Whether to generate JUnit XML report
             junit_report_path: Path for JUnit XML report (default: tmp dir)
-            pytest_cmd: Path to pytest executable (default: "pytest" from PATH)
+            pytest_cmd: Path to pytest executable (default: python -m pytest)
         """
         super().__init__(name, enabled)
         self.test_dir = test_dir
@@ -58,7 +59,7 @@ class TestVerifier(Verifier):
         self.coverage = coverage
         self.junit_report = junit_report
         self.junit_report_path = junit_report_path
-        self._pytest_cmd = pytest_cmd or "pytest"
+        self._pytest_cmd = [pytest_cmd] if pytest_cmd else [sys.executable, "-m", "pytest"]
 
         logger.info(f"TestVerifier initialized: test_dir={test_dir}, pattern={pattern}, timeout={timeout}s")
 
@@ -75,7 +76,7 @@ class TestVerifier(Verifier):
         logger.info(f"Running test verification on {len(files)} files: {files}")
 
         # Build pytest command
-        cmd = [self._pytest_cmd]
+        cmd = list(self._pytest_cmd)
 
         # Add test directory or specific files
         if files:

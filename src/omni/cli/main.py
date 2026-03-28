@@ -13,6 +13,7 @@ import click
 from ..models.litellm_provider import LiteLLMProvider
 from ..models.mock_provider import MockProvider
 from ..models.provider import Message, MessageRole, ModelProvider
+from ..observability.cli import register_execute_command
 
 # Configure logging
 logging.basicConfig(
@@ -185,6 +186,8 @@ async def _list_models_async() -> None:
 
 def main() -> None:
     """Main entry point."""
+    # Register execute command group
+    register_execute_command(cli)
     cli()
 
 

@@ -4,12 +4,19 @@ Core scheduling algorithm for parallel execution.
 
 import asyncio
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from ..task.models import Task, TaskGraph, TaskStatus
 from .config import ExecutionConfig
 from .models import ExecutionAbortedError, TaskExecutionError, TaskFatalError
+from .policies import (
+    FIFOPolicy,
+    SchedulingContext,
+    SchedulingPolicyBase,
+    SchedulingScore,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +31,7 @@ class Scheduler:
         task_executor: Callable[[Task], Awaitable[Any]],
         on_task_complete: Callable[[str, TaskStatus, dict | None, str | None], None],
         on_propagate_skip: Callable[[str], None],
+        policy: SchedulingPolicyBase | None = None,
     ) -> None:
         """
         Args:
@@ -32,12 +40,14 @@ class Scheduler:
             task_executor: Function that takes a Task and returns an asyncio.Task
             on_task_complete: Callback when task completes (task_id, status, result, error)
             on_propagate_skip: Callback to propagate skip to downstream tasks
+            policy: Scheduling policy to use (defaults to FIFO for backward compatibility)
         """
         self.graph = graph
         self.config = config
         self.task_executor = task_executor
         self.on_task_complete = on_task_complete
         self.on_propagate_skip = on_propagate_skip
+        self.policy = policy or FIFOPolicy()
 
         self.running_tasks: dict[str, asyncio.Task] = {}
         self.completed_results: dict[str, dict] = {}
@@ -48,6 +58,7 @@ class Scheduler:
         self.semaphore = asyncio.Semaphore(config.max_concurrent)
         self.should_cancel = False
         self.execution_started = False
+        self.scheduling_decisions: list[SchedulingScore] = []  # for observability
 
     async def run(self) -> None:
         """Main scheduling loop."""
@@ -144,9 +155,77 @@ class Scheduler:
             if deps_completed and task.task_id not in self.skipped_tasks:
                 ready.append(task)
 
-        # Sort by priority (higher first)
-        ready.sort(key=lambda t: t.priority, reverse=True)
+        # Apply scheduling policy if we have ready tasks
+        if ready:
+            context = self._build_scheduling_context(ready)
+            scored = self.policy.rank_tasks(context)
+            self.scheduling_decisions.extend(scored)
+
+            # Sort tasks by composite score (higher first)
+            task_order = [self.graph.tasks[s.task_id] for s in scored]
+            return task_order
+
         return ready
+
+    def _build_scheduling_context(self, ready_tasks: list[Task]) -> SchedulingContext:
+        """Build scheduling context for policy decisions."""
+        # Extract execution info from running tasks
+        running_info = {}
+        for task_id, task_future in self.running_tasks.items():
+            # Get task start time if available from the future
+            started_at = None
+            if hasattr(task_future, '_started_at'):
+                started_at = task_future._started_at  # type: ignore
+
+            running_info[task_id] = {
+                "workflow_id": self.graph.name,
+                "started_at": started_at,
+            }
+
+        # Build deadline info (extract from task metadata if available)
+        deadline_info = {}
+        for task in ready_tasks:
+            # Check for deadline in task metadata
+            deadline = getattr(task, 'deadline', None)
+            if deadline:
+                deadline_info[task.task_id] = deadline
+
+        # Get resource snapshot if resource manager is available
+        resource_snapshot = {}
+        if hasattr(self, 'resource_manager'):
+            resource_snapshot = self.resource_manager.get_status()
+
+        # Get agent availability if matcher is available
+        agent_availability: dict[str, Any] = {}
+        if hasattr(self, 'agent_matcher'):
+            # This would query the matcher for current agent loads
+            # For now, return empty dict as placeholder
+            pass
+
+        # Get cost budget remaining if cost tracker is available
+        cost_budget_remaining = None
+        if hasattr(self, 'cost_tracker'):
+            # This would query the cost tracker for remaining budget
+            # For now, return None as placeholder
+            pass
+
+        # Get execution history if workload tracker is available
+        execution_history: list[Any] = []
+        if hasattr(self, 'workload_tracker'):
+            # This would get recent execution records
+            # For now, return empty list as placeholder
+            pass
+
+        return SchedulingContext(
+            ready_tasks=ready_tasks,
+            running_tasks=running_info,
+            workflow_id=self.graph.name,
+            resource_snapshot=resource_snapshot,
+            agent_availability=agent_availability,
+            deadline_info=deadline_info,
+            cost_budget_remaining=cost_budget_remaining,
+            execution_history=execution_history,
+        )
 
     def _mark_task_skipped(self, task_id: str, failed_task_id: str | None = None) -> None:
         """Mark a task as skipped and propagate to its dependents."""
@@ -176,6 +255,8 @@ class Scheduler:
                 # Create and track the task
                 coro = self._execute_task_with_retry(task)
                 task_future = asyncio.create_task(coro)
+                # Add start time for scheduling context
+                task_future._started_at = time.time()  # type: ignore[attr-defined]
                 self.running_tasks[task.task_id] = task_future
                 scheduled += 1
 

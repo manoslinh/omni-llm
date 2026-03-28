@@ -21,6 +21,7 @@ from .models import (
     ExecutionResult,
     ExecutionStatus,
 )
+from .policies import FIFOPolicy, SchedulingPolicyBase
 from .scheduler import Scheduler
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ class ParallelExecutionEngine:
         config: ExecutionConfig | None = None,
         callbacks: ExecutionCallbacks | None = None,
         db_path: str | Path = "omni_executions.db",
+        policy: SchedulingPolicyBase | None = None,
     ) -> None:
         """
         Args:
@@ -44,12 +46,14 @@ class ParallelExecutionEngine:
             config: Execution configuration
             callbacks: Optional callbacks for execution events
             db_path: Path to SQLite database for persistence
+            policy: Scheduling policy to use (defaults to FIFO for backward compatibility)
         """
         self.graph = graph
         self.executor = executor
         self.config = config or ExecutionConfig()
         self.callbacks = callbacks or ExecutionCallbacks()
         self.db = ExecutionDB(db_path)
+        self.policy = policy or FIFOPolicy()
 
         self.execution_id = uuid.uuid4().hex[:16]
         self.started_at: datetime | None = None
@@ -93,6 +97,7 @@ class ParallelExecutionEngine:
             task_executor=self._create_task_executor(),
             on_task_complete=self._handle_task_complete,
             on_propagate_skip=self._propagate_skip,
+            policy=self.policy,
         )
 
         # Run the scheduler

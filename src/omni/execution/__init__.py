@@ -8,7 +8,7 @@ with dependency resolution, retry logic, and persistence.
 from .config import ExecutionCallbacks, ExecutionConfig, ExecutionContext
 from .db import ExecutionDB
 from .engine import ParallelExecutionEngine
-from .executor import MockTaskExecutor, TaskExecutor
+from .executor import LLMTaskExecutor, MockTaskExecutor, TaskExecutor
 from .models import (
     ExecutionAbortedError,
     ExecutionMetrics,
@@ -31,6 +31,7 @@ __all__ = [
     # Executors
     "TaskExecutor",
     "MockTaskExecutor",
+    "LLMTaskExecutor",
 
     # Models
     "ExecutionResult",

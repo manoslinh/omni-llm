@@ -9,8 +9,7 @@ the task type and whose quality estimate meets the minimum threshold.
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from omni.providers.config import DEFAULT_PROVIDERS_CONFIG_PATH, ConfigLoader
-
+from ..providers.config import DEFAULT_PROVIDERS_CONFIG_PATH, ConfigLoader
 from .errors import BudgetExceededError, NoEligibleModelError
 from .models import (
     CostEstimate,

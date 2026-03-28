@@ -3,13 +3,17 @@ Tests for task executors.
 """
 
 import asyncio
+import json
 
 import pytest
 
 from src.omni.execution.config import ExecutionContext
-from src.omni.execution.executor import MockTaskExecutor
+from src.omni.execution.executor import LLMTaskExecutor, MockTaskExecutor
 from src.omni.execution.models import TaskExecutionError, TaskFatalError
-from src.omni.task.models import Task, TaskStatus
+from src.omni.providers.base import ChatCompletion, TokenUsage
+from src.omni.providers.mock_provider import MockProvider
+from src.omni.router import ModelRouter, RouterConfig
+from src.omni.task.models import ComplexityEstimate, Task, TaskStatus, TaskType
 
 
 @pytest.mark.asyncio
@@ -185,3 +189,284 @@ async def test_mock_executor_cancellation() -> None:
     # Should raise CancelledError
     with pytest.raises(asyncio.CancelledError):
         await task_future
+
+
+# LLMTaskExecutor Tests
+@pytest.fixture
+def mock_router() -> ModelRouter:
+    """Create a mock router with mock provider for testing."""
+    # Create mock provider
+    mock_provider = MockProvider(config={"response_delay": 0.01})
+
+    # Create router config
+    config = RouterConfig(
+        providers={
+            "mimo/mimo-v2-flash": mock_provider,
+            "deepseek/deepseek-chat": mock_provider,
+            "moonshot/kimi-k2.5": mock_provider,
+            "mimo/mimo-v2-pro": mock_provider,
+            "openai/gpt-5-mini": mock_provider,
+            "openai/gpt-4.1-mini": mock_provider,
+        }
+    )
+
+    return ModelRouter(config)
+
+
+@pytest.mark.asyncio
+async def test_llm_executor_basic(mock_router: ModelRouter) -> None:
+    """Test LLMTaskExecutor basic functionality."""
+    executor = LLMTaskExecutor(
+        router=mock_router,
+        timeout_per_task=5.0,
+        default_temperature=0.7,
+        max_tokens_per_task=1000,
+    )
+
+    task = Task(
+        description="Write a function to add two numbers",
+        task_type=TaskType.CODE_GENERATION,
+        complexity=ComplexityEstimate(
+            code_complexity=3,
+            integration_complexity=2,
+            testing_complexity=1,
+            unknown_factor=1,
+            estimated_tokens=500,
+            reasoning="Simple code generation task",
+        ),
+    )
+
+    context = ExecutionContext(
+        dependency_results={},
+        execution_id="test-llm-123",
+        task_index=1,
+        total_tasks=3,
+    )
+
+    result = await executor.execute(task, context)
+
+    assert result.task_id == task.task_id
+    assert result.status in [TaskStatus.COMPLETED, TaskStatus.FAILED]
+    assert result.tokens_used > 0
+    assert "model" in result.metadata
+    assert "tier" in result.metadata
+    assert result.metadata["tier"] == "intern"  # Based on complexity score
+
+
+@pytest.mark.asyncio
+async def test_llm_executor_with_dependencies(mock_router: ModelRouter) -> None:
+    """Test LLMTaskExecutor with dependency results."""
+    executor = LLMTaskExecutor(
+        router=mock_router,
+        timeout_per_task=5.0,
+    )
+
+    # Create dependency results
+    from src.omni.task.models import TaskResult
+
+    dependency_results = {
+        "dep1": TaskResult(
+            task_id="dep1",
+            status=TaskStatus.COMPLETED,
+            outputs={"result": "Dependency 1 completed successfully"},
+        ),
+        "dep2": TaskResult(
+            task_id="dep2",
+            status=TaskStatus.COMPLETED,
+            outputs={"result": "Dependency 2 completed successfully"},
+        ),
+    }
+
+    task = Task(
+        description="Combine the results from dependencies",
+        task_type=TaskType.CODE_GENERATION,
+        complexity=ComplexityEstimate(
+            code_complexity=5,
+            integration_complexity=6,
+            testing_complexity=3,
+            unknown_factor=2,
+            estimated_tokens=800,
+            reasoning="Integration task with dependencies",
+        ),
+    )
+
+    context = ExecutionContext(
+        dependency_results=dependency_results,
+        execution_id="test-llm-456",
+        task_index=2,
+        total_tasks=3,
+    )
+
+    result = await executor.execute(task, context)
+
+    assert result.task_id == task.task_id
+    assert result.status in [TaskStatus.COMPLETED, TaskStatus.FAILED]
+    assert result.tokens_used > 0
+    assert result.metadata["tier"] == "coder"  # Based on complexity score
+
+
+@pytest.mark.asyncio
+async def test_llm_executor_tier_routing(mock_router: ModelRouter) -> None:
+    """Test LLMTaskExecutor tier-based model routing."""
+    executor = LLMTaskExecutor(
+        router=mock_router,
+        timeout_per_task=5.0,
+    )
+
+    # Test different complexity tiers
+    # Based on ComplexityEstimate.tier property:
+    # - score <= 3.0: intern
+    # - score <= 5.5: coder
+    # - score <= 7.5: reader
+    # - score > 7.5: thinker
+    test_cases = [
+        (ComplexityEstimate(code_complexity=1, integration_complexity=1, testing_complexity=1, unknown_factor=1), "intern"),  # score = 1.0
+        (ComplexityEstimate(code_complexity=5, integration_complexity=4, testing_complexity=3, unknown_factor=3), "coder"),   # score ≈ 4.0
+        (ComplexityEstimate(code_complexity=7, integration_complexity=6, testing_complexity=5, unknown_factor=5), "reader"),  # score ≈ 6.0
+        (ComplexityEstimate(code_complexity=9, integration_complexity=8, testing_complexity=7, unknown_factor=8), "thinker"), # score ≈ 8.0
+    ]
+
+    for complexity, expected_tier in test_cases:
+        task = Task(
+            description=f"Test task for {expected_tier} tier",
+            task_type=TaskType.ANALYSIS,
+            complexity=complexity,
+        )
+
+        context = ExecutionContext(
+            dependency_results={},
+            execution_id=f"test-tier-{expected_tier}",
+            task_index=1,
+            total_tasks=1,
+        )
+
+        result = await executor.execute(task, context)
+        assert result.metadata["tier"] == expected_tier
+
+
+@pytest.mark.asyncio
+async def test_llm_executor_json_response(mock_router: ModelRouter) -> None:
+    """Test LLMTaskExecutor with JSON response parsing."""
+    # Create a custom mock provider that returns JSON responses
+    class JSONMockProvider(MockProvider):
+        async def chat_completion(self, messages, model, **kwargs):
+            # Simulate delay
+            await asyncio.sleep(0.01)
+
+            # Return a JSON response
+            json_response = {
+                "result": "Mock JSON response for testing",
+                "explanation": "This is a test response in JSON format",
+                "next_steps": ["Test step 1", "Test step 2"]
+            }
+
+            return ChatCompletion(
+                content=json.dumps(json_response, indent=2),
+                model=model,
+                usage=TokenUsage(prompt_tokens=100, completion_tokens=50, total_tokens=150),
+                finish_reason="stop",
+            )
+
+    # Create router with JSON mock provider
+    json_provider = JSONMockProvider(config={"response_delay": 0.01})
+    config = RouterConfig(
+        providers={
+            "mimo/mimo-v2-flash": json_provider,
+            "deepseek/deepseek-chat": json_provider,
+            "moonshot/kimi-k2.5": json_provider,
+            "mimo/mimo-v2-pro": json_provider,
+            "openai/gpt-5-mini": json_provider,
+            "openai/gpt-4.1-mini": json_provider,
+        }
+    )
+    router = ModelRouter(config)
+
+    executor = LLMTaskExecutor(router=router, timeout_per_task=5.0)
+
+    task = Task(
+        description="Test JSON response parsing",
+        task_type=TaskType.CODE_GENERATION,
+        complexity=ComplexityEstimate(
+            code_complexity=4,
+            integration_complexity=3,
+            testing_complexity=2,
+            unknown_factor=1,
+        ),
+    )
+
+    context = ExecutionContext(
+        dependency_results={},
+        execution_id="test-json-123",
+        task_index=1,
+        total_tasks=1,
+    )
+
+    result = await executor.execute(task, context)
+
+    assert result.status == TaskStatus.COMPLETED
+    assert "result" in result.outputs
+    assert result.outputs["result"] == "Mock JSON response for testing"
+    assert "explanation" in result.outputs
+    assert "next_steps" in result.outputs
+
+
+@pytest.mark.asyncio
+async def test_llm_executor_timeout(mock_router: ModelRouter) -> None:
+    """Test LLMTaskExecutor timeout handling."""
+    # Create a slow mock provider
+    class SlowMockProvider(MockProvider):
+        async def chat_completion(self, messages, model, **kwargs):
+            # Sleep longer than timeout
+            await asyncio.sleep(2.0)
+            return await super().chat_completion(messages, model, **kwargs)
+
+    slow_provider = SlowMockProvider(config={"response_delay": 0})
+    config = RouterConfig(
+        providers={
+            "deepseek/deepseek-chat": slow_provider,
+        }
+    )
+    router = ModelRouter(config)
+
+    # Create executor with very short timeout
+    executor = LLMTaskExecutor(router=router, timeout_per_task=0.5)
+
+    task = Task(
+        description="Test timeout",
+        task_type=TaskType.CODE_GENERATION,
+    )
+
+    context = ExecutionContext(
+        dependency_results={},
+        execution_id="test-timeout-123",
+        task_index=1,
+        total_tasks=1,
+    )
+
+    # Should raise TaskExecutionError due to timeout
+    with pytest.raises(TaskExecutionError):
+        await executor.execute(task, context)
+
+
+def test_llm_executor_configuration() -> None:
+    """Test LLMTaskExecutor configuration."""
+    # Create a minimal router for testing config
+    mock_provider = MockProvider()
+    config = RouterConfig(providers={"test-model": mock_provider})
+    router = ModelRouter(config)
+
+    executor = LLMTaskExecutor(
+        router=router,
+        timeout_per_task=10.0,
+        default_temperature=0.5,
+        max_tokens_per_task=2000,
+    )
+
+    assert executor.router == router
+    assert executor.timeout_per_task == 10.0
+    assert executor.default_temperature == 0.5
+    assert executor.max_tokens_per_task == 2000
+    assert "intern" in executor.tier_to_model
+    assert "coder" in executor.tier_to_model
+    assert "reader" in executor.tier_to_model
+    assert "thinker" in executor.tier_to_model

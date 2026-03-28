@@ -66,7 +66,7 @@ class MockTaskExecutor:
         context: ExecutionContext,
     ) -> TaskResult:
         """Execute a task with configurable mock behavior."""
-        
+
         # Simulate execution delay
         delay = self.avg_delay + random.uniform(
             -self.delay_variance, self.delay_variance
@@ -96,7 +96,7 @@ class MockTaskExecutor:
         else:
             # Failure case - simulate different error types
             error_type = random.choice(["recoverable", "fatal", "transient"])
-            
+
             if error_type == "fatal":
                 raise TaskFatalError(f"Mock fatal error for task {task.task_id}")
             elif error_type == "transient":

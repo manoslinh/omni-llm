@@ -28,10 +28,10 @@ class ExecutionDB:
     def _init_db(self) -> None:
         """Initialize database schema if it doesn't exist."""
         conn = self._get_connection()
-        
+
         # Enable WAL mode for better concurrency
         conn.execute("PRAGMA journal_mode=WAL")
-        
+
         # Create tables
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS executions (
@@ -56,10 +56,10 @@ class ExecutionDB:
                 FOREIGN KEY (execution_id) REFERENCES executions(execution_id) ON DELETE CASCADE
             );
 
-            CREATE INDEX IF NOT EXISTS idx_task_states_status 
+            CREATE INDEX IF NOT EXISTS idx_task_states_status
             ON task_states(execution_id, status);
         """)
-        
+
         conn.commit()
 
     def _get_connection(self) -> sqlite3.Connection:
@@ -89,19 +89,19 @@ class ExecutionDB:
     ) -> None:
         """Save or update execution metadata."""
         conn = self._get_connection()
-        
+
         # Check if execution already exists
         cursor = conn.execute(
             "SELECT 1 FROM executions WHERE execution_id = ?",
             (execution_id,)
         )
         exists = cursor.fetchone() is not None
-        
+
         if exists:
             # Update existing execution
             conn.execute(
                 """
-                UPDATE executions 
+                UPDATE executions
                 SET status = ?, completed_at = ?
                 WHERE execution_id = ?
                 """,
@@ -115,7 +115,7 @@ class ExecutionDB:
             # Insert new execution
             conn.execute(
                 """
-                INSERT INTO executions 
+                INSERT INTO executions
                 (execution_id, graph_name, started_at, status, config_json)
                 VALUES (?, ?, ?, ?, ?)
                 """,
@@ -127,7 +127,7 @@ class ExecutionDB:
                     json.dumps(self._config_to_dict(config)),
                 )
             )
-        
+
         conn.commit()
 
     def save_task_state(
@@ -143,24 +143,24 @@ class ExecutionDB:
     ) -> None:
         """Save or update task state."""
         conn = self._get_connection()
-        
+
         # Check if task state already exists
         cursor = conn.execute(
             """
-            SELECT 1 FROM task_states 
+            SELECT 1 FROM task_states
             WHERE execution_id = ? AND task_id = ?
             """,
             (execution_id, task_id)
         )
         exists = cursor.fetchone() is not None
-        
+
         result_json = json.dumps(self._result_to_dict(result)) if result else None
-        
+
         if exists:
             # Update existing task state
             conn.execute(
                 """
-                UPDATE task_states 
+                UPDATE task_states
                 SET status = ?, started_at = ?, completed_at = ?,
                     retry_count = ?, result_json = ?, error_msg = ?
                 WHERE execution_id = ? AND task_id = ?
@@ -180,7 +180,7 @@ class ExecutionDB:
             # Insert new task state
             conn.execute(
                 """
-                INSERT INTO task_states 
+                INSERT INTO task_states
                 (execution_id, task_id, status, started_at, completed_at,
                  retry_count, result_json, error_msg)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -196,7 +196,7 @@ class ExecutionDB:
                     error_msg,
                 )
             )
-        
+
         conn.commit()
 
     def load_execution(
@@ -205,33 +205,33 @@ class ExecutionDB:
     ) -> tuple[str, datetime | None, datetime | None, ExecutionStatus, ExecutionConfig]:
         """Load execution metadata."""
         conn = self._get_connection()
-        
+
         cursor = conn.execute(
             """
             SELECT graph_name, started_at, completed_at, status, config_json
-            FROM executions 
+            FROM executions
             WHERE execution_id = ?
             """,
             (execution_id,)
         )
-        
+
         row = cursor.fetchone()
         if not row:
             raise KeyError(f"Execution {execution_id} not found")
-        
+
         graph_name, started_at_str, completed_at_str, status_str, config_json = row
-        
+
         # Parse dates
         started_at = datetime.fromisoformat(started_at_str) if started_at_str else None
         completed_at = datetime.fromisoformat(completed_at_str) if completed_at_str else None
-        
+
         # Parse config
         config_dict = json.loads(config_json)
         config = self._dict_to_config(config_dict)
-        
+
         # Parse status
         status = ExecutionStatus(status_str)
-        
+
         return graph_name, started_at, completed_at, status, config
 
     def load_task_states(
@@ -240,37 +240,37 @@ class ExecutionDB:
     ) -> dict[str, tuple[TaskStatus, int, TaskResult | None, str | None]]:
         """Load all task states for an execution."""
         conn = self._get_connection()
-        
+
         cursor = conn.execute(
             """
             SELECT task_id, status, retry_count, result_json, error_msg
-            FROM task_states 
+            FROM task_states
             WHERE execution_id = ?
             """,
             (execution_id,)
         )
-        
+
         results = {}
         for task_id, status_str, retry_count, result_json, error_msg in cursor:
             status = TaskStatus(status_str)
             result = self._dict_to_result(json.loads(result_json)) if result_json else None
             results[task_id] = (status, retry_count, result, error_msg)
-        
+
         return results
 
     def get_execution_status(self, execution_id: str) -> ExecutionStatus:
         """Get current status of an execution."""
         conn = self._get_connection()
-        
+
         cursor = conn.execute(
             "SELECT status FROM executions WHERE execution_id = ?",
             (execution_id,)
         )
-        
+
         row = cursor.fetchone()
         if not row:
             raise KeyError(f"Execution {execution_id} not found")
-        
+
         return ExecutionStatus(row[0])
 
     def list_executions(
@@ -280,17 +280,17 @@ class ExecutionDB:
     ) -> list[tuple[str, str, ExecutionStatus, datetime]]:
         """List executions with pagination."""
         conn = self._get_connection()
-        
+
         cursor = conn.execute(
             """
             SELECT execution_id, graph_name, status, started_at
-            FROM executions 
+            FROM executions
             ORDER BY started_at DESC
             LIMIT ? OFFSET ?
             """,
             (limit, offset)
         )
-        
+
         return [
             (exec_id, graph_name, ExecutionStatus(status), datetime.fromisoformat(started_at))
             for exec_id, graph_name, status, started_at in cursor
@@ -299,13 +299,13 @@ class ExecutionDB:
     def delete_execution(self, execution_id: str) -> None:
         """Delete an execution and all its task states."""
         conn = self._get_connection()
-        
+
         # Foreign key cascade should delete task_states automatically
         conn.execute(
             "DELETE FROM executions WHERE execution_id = ?",
             (execution_id,)
         )
-        
+
         conn.commit()
 
     # Helper methods for serialization
@@ -343,7 +343,7 @@ class ExecutionDB:
         """Convert dict to TaskResult."""
         # Need to import TaskStatus from the right place
         from ..task.models import TaskStatus
-        
+
         return TaskResult(
             task_id=data["task_id"],
             status=TaskStatus(data["status"]),

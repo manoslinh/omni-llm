@@ -4,12 +4,12 @@ Core scheduling algorithm for parallel execution.
 
 import asyncio
 import logging
-from collections import defaultdict
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from ..task.models import Task, TaskGraph, TaskStatus
 from .config import ExecutionConfig
-from .models import TaskExecutionError, TaskFatalError
+from .models import ExecutionAbortedError, TaskExecutionError, TaskFatalError
 
 logger = logging.getLogger(__name__)
 
@@ -38,13 +38,13 @@ class Scheduler:
         self.task_executor = task_executor
         self.on_task_complete = on_task_complete
         self.on_propagate_skip = on_propagate_skip
-        
+
         self.running_tasks: dict[str, asyncio.Task] = {}
         self.completed_results: dict[str, dict] = {}
         self.failed_tasks: set[str] = set()
         self.skipped_tasks: set[str] = set()
         self.cancelled_tasks: set[str] = set()
-        
+
         self.semaphore = asyncio.Semaphore(config.max_concurrent)
         self.should_cancel = False
         self.execution_started = False
@@ -52,18 +52,18 @@ class Scheduler:
     async def run(self) -> None:
         """Main scheduling loop."""
         self.execution_started = True
-        
+
         # Validate graph
         issues = self.graph.validate()
         if issues:
             raise ValueError(f"Invalid task graph: {issues}")
-        
+
         logger.info(f"Starting execution of graph '{self.graph.name}' with {self.graph.size} tasks")
-        
+
         while not self._is_execution_complete() and not self.should_cancel:
             # Get ready tasks (pending with all deps completed)
             ready_tasks = self._get_ready_tasks()
-            
+
             if not ready_tasks and not self.running_tasks:
                 # No ready tasks and nothing running - check for deadlock
                 if self._has_deadlock():
@@ -72,19 +72,19 @@ class Scheduler:
                 # Might be waiting for running tasks to complete
                 await asyncio.sleep(0.1)
                 continue
-            
+
             # Schedule as many tasks as concurrency allows
             scheduled = await self._schedule_tasks(ready_tasks)
-            
+
             if scheduled == 0 and self.running_tasks:
                 # No tasks could be scheduled, wait for some to complete
                 await self._wait_for_completion()
-        
+
         # Wait for any remaining running tasks to complete
         if self.running_tasks:
             logger.info(f"Waiting for {len(self.running_tasks)} running tasks to complete")
             await asyncio.wait(self.running_tasks.values())
-        
+
         logger.info(f"Execution complete. Completed: {len(self.completed_results)}, "
                    f"Failed: {len(self.failed_tasks)}, Skipped: {len(self.skipped_tasks)}")
 
@@ -92,16 +92,16 @@ class Scheduler:
         """Cancel execution gracefully."""
         self.should_cancel = True
         logger.info("Cancellation requested")
-        
+
         # Cancel all running tasks
         for task_id, task_future in self.running_tasks.items():
             task_future.cancel()
             self.cancelled_tasks.add(task_id)
-        
+
         # Wait for cancellations to complete
         if self.running_tasks:
             await asyncio.wait(self.running_tasks.values())
-        
+
         # Mark pending tasks as cancelled
         for task in self.graph.tasks.values():
             if task.status == TaskStatus.PENDING:
@@ -113,7 +113,7 @@ class Scheduler:
         """Check if execution is complete."""
         if self.should_cancel:
             return True
-        
+
         # All tasks are in terminal states
         for task in self.graph.tasks.values():
             if not task.is_terminal:
@@ -123,11 +123,11 @@ class Scheduler:
     def _get_ready_tasks(self) -> list[Task]:
         """Get tasks that are ready to execute."""
         ready = []
-        
+
         for task in self.graph.tasks.values():
             if task.status != TaskStatus.PENDING:
                 continue
-            
+
             # Check if all dependencies are completed
             deps_completed = True
             for dep_id in task.dependencies:
@@ -135,15 +135,15 @@ class Scheduler:
                 if dep_task.status != TaskStatus.COMPLETED:
                     deps_completed = False
                     # If dependency failed and we should skip, mark this task as skipped
-                    if (dep_task.status == TaskStatus.FAILED and 
+                    if (dep_task.status == TaskStatus.FAILED and
                         self.config.skip_on_dep_failure and
                         task.task_id not in self.skipped_tasks):
                         self._mark_task_skipped(task.task_id, dep_task.task_id)
                     break
-            
+
             if deps_completed and task.task_id not in self.skipped_tasks:
                 ready.append(task)
-        
+
         # Sort by priority (higher first)
         ready.sort(key=lambda t: t.priority, reverse=True)
         return ready
@@ -152,14 +152,14 @@ class Scheduler:
         """Mark a task as skipped and propagate to its dependents."""
         if task_id in self.skipped_tasks:
             return
-        
+
         task = self.graph.tasks[task_id]
         task.status = TaskStatus.SKIPPED
         self.skipped_tasks.add(task_id)
-        
+
         # Call completion callback
         self.on_task_complete(task_id, TaskStatus.SKIPPED, None, "Skipped due to dependency failure")
-        
+
         # Propagate to dependents (pass the original failed task ID if available)
         propagate_from = failed_task_id or task_id
         self.on_propagate_skip(propagate_from)
@@ -167,41 +167,41 @@ class Scheduler:
     async def _schedule_tasks(self, ready_tasks: list[Task]) -> int:
         """Schedule tasks up to concurrency limit."""
         scheduled = 0
-        
+
         for task in ready_tasks:
             if self.semaphore.locked():
                 break
-            
+
             async with self.semaphore:
                 # Create and track the task
                 coro = self._execute_task_with_retry(task)
                 task_future = asyncio.create_task(coro)
                 self.running_tasks[task.task_id] = task_future
                 scheduled += 1
-                
+
                 # Mark task as running
                 task.mark_running()
                 logger.debug(f"Started task {task.task_id}: {task.description[:50]}...")
-        
+
         return scheduled
 
     async def _execute_task_with_retry(self, task: Task) -> None:
         """Execute a task with retry logic."""
         retry_count = 0
         last_error = None
-        
+
         while retry_count <= task.max_retries and not self.should_cancel:
             try:
                 # Execute the task
                 task_future = self.task_executor(task)
                 result = await task_future
-                
+
                 # Task completed successfully
                 task.mark_completed()
                 self.completed_results[task.task_id] = result
                 self.on_task_complete(task.task_id, TaskStatus.COMPLETED, result, None)
                 return
-                
+
             except TaskFatalError as e:
                 # Fatal error - no retry
                 last_error = str(e)
@@ -209,17 +209,17 @@ class Scheduler:
                 self.failed_tasks.add(task.task_id)
                 self.on_task_complete(task.task_id, TaskStatus.FAILED, None, last_error)
                 break
-                
+
             except TaskExecutionError as e:
                 # Recoverable error - retry if allowed
                 last_error = str(e)
                 retry_count += 1
-                
+
                 if retry_count <= task.max_retries and self.config.retry_enabled:
                     # Calculate backoff delay
                     delay = self._calculate_backoff(retry_count)
                     logger.warning(f"Task {task.task_id} failed, retry {retry_count}/{task.max_retries} after {delay:.1f}s: {e}")
-                    
+
                     # Increment retry count but keep task running
                     task.retry_count += 1
                     await asyncio.sleep(delay)
@@ -229,19 +229,19 @@ class Scheduler:
                     self.failed_tasks.add(task.task_id)
                     self.on_task_complete(task.task_id, TaskStatus.FAILED, None, last_error)
                     break
-                    
+
+            except ExecutionAbortedError:
+                # Fail-fast triggered - re-raise immediately
+                raise
+
             except asyncio.CancelledError:
                 # Task was cancelled
                 task.status = TaskStatus.CANCELLED
                 self.cancelled_tasks.add(task.task_id)
                 self.on_task_complete(task.task_id, TaskStatus.CANCELLED, None, "Cancelled")
                 raise
-                
+
             except Exception as e:
-                # Don't catch ExecutionAbortedError - let it propagate
-                from .models import ExecutionAbortedError
-                if isinstance(e, ExecutionAbortedError):
-                    raise
                 # Unexpected error
                 last_error = f"Unexpected error: {e}"
                 logger.exception(f"Unexpected error executing task {task.task_id}")
@@ -249,14 +249,7 @@ class Scheduler:
                 self.failed_tasks.add(task.task_id)
                 self.on_task_complete(task.task_id, TaskStatus.FAILED, None, last_error)
                 break
-                    
-            except asyncio.CancelledError:
-                # Task was cancelled
-                task.status = TaskStatus.CANCELLED
-                self.cancelled_tasks.add(task.task_id)
-                self.on_task_complete(task.task_id, TaskStatus.CANCELLED, None, "Cancelled")
-                raise
-        
+
         # If we get here and task is still running, mark it as failed
         if task.status == TaskStatus.RUNNING:
             task.mark_failed()
@@ -273,12 +266,12 @@ class Scheduler:
         """Wait for any running task to complete."""
         if not self.running_tasks:
             return
-        
+
         done, _ = await asyncio.wait(
             self.running_tasks.values(),
             return_when=asyncio.FIRST_COMPLETED
         )
-        
+
         # Clean up completed tasks
         for task_future in done:
             # Find which task this future corresponds to
@@ -287,20 +280,18 @@ class Scheduler:
                 if future is task_future:
                     task_id = tid
                     break
-            
+
             if task_id:
                 del self.running_tasks[task_id]
-                
+
                 # Check for exception
                 try:
                     task_future.result()
+                except ExecutionAbortedError:
+                    raise  # Re-raise immediately for fail-fast
                 except asyncio.CancelledError:
                     pass  # Expected for cancelled tasks
                 except Exception as e:
-                    # Don't catch ExecutionAbortedError - let it propagate
-                    from .models import ExecutionAbortedError
-                    if isinstance(e, ExecutionAbortedError):
-                        raise
                     logger.debug(f"Task {task_id} future raised: {e}")
 
     def _has_deadlock(self) -> bool:
@@ -308,7 +299,7 @@ class Scheduler:
         # If there are running tasks, not a deadlock yet
         if self.running_tasks:
             return False
-        
+
         # Check if any task is pending with all dependencies met
         for task in self.graph.tasks.values():
             if task.status == TaskStatus.PENDING:
@@ -320,7 +311,7 @@ class Scheduler:
                         break
                 if deps_met:
                     return False  # At least one task can run
-        
+
         # No tasks can run
         return True
 
@@ -334,10 +325,10 @@ class Scheduler:
             "cancelled": len(self.cancelled_tasks),
             "running": len(self.running_tasks),
             "pending": self.graph.size - (
-                len(self.completed_results) + 
-                len(self.failed_tasks) + 
-                len(self.skipped_tasks) + 
-                len(self.cancelled_tasks) + 
+                len(self.completed_results) +
+                len(self.failed_tasks) +
+                len(self.skipped_tasks) +
+                len(self.cancelled_tasks) +
                 len(self.running_tasks)
             ),
         }

@@ -2,16 +2,15 @@
 Tests for execution models.
 """
 
-import pytest
 from datetime import datetime, timedelta
 
 from src.omni.execution.models import (
-    ExecutionStatus,
+    ExecutionAbortedError,
     ExecutionMetrics,
     ExecutionResult,
+    ExecutionStatus,
     TaskExecutionError,
     TaskFatalError,
-    ExecutionAbortedError,
 )
 from src.omni.task.models import TaskResult, TaskStatus
 
@@ -23,7 +22,7 @@ def test_execution_status() -> None:
     assert ExecutionStatus.FAILED.value == "failed"
     assert ExecutionStatus.CANCELLED.value == "cancelled"
     assert ExecutionStatus.PARTIAL.value == "partial"
-    
+
     # String representation
     assert str(ExecutionStatus.RUNNING) == "running"
 
@@ -44,7 +43,7 @@ def test_execution_metrics() -> None:
         wall_clock_seconds=10.5,
         parallel_efficiency=0.8,
     )
-    
+
     assert metrics.execution_id == "test123"
     assert metrics.total_tasks == 10
     assert metrics.completed == 5
@@ -57,7 +56,7 @@ def test_execution_metrics() -> None:
     assert metrics.total_cost == 0.02
     assert metrics.wall_clock_seconds == 10.5
     assert metrics.parallel_efficiency == 0.8
-    
+
     # Test update_from_results
     results = {
         "task1": TaskResult(task_id="task1", status=TaskStatus.COMPLETED, tokens_used=100, cost=0.002),
@@ -65,7 +64,7 @@ def test_execution_metrics() -> None:
         "task3": TaskResult(task_id="task3", status=TaskStatus.SKIPPED, tokens_used=0, cost=0.0),
         "task4": TaskResult(task_id="task4", status=TaskStatus.CANCELLED, tokens_used=0, cost=0.0),
     }
-    
+
     metrics.update_from_results(results)
     assert metrics.completed == 1
     assert metrics.failed == 1
@@ -79,20 +78,20 @@ def test_execution_result() -> None:
     """Test ExecutionResult."""
     started_at = datetime.now()
     completed_at = started_at + timedelta(seconds=10)
-    
+
     # Create some mock results
     results = {
         "task1": TaskResult(task_id="task1", status=TaskStatus.COMPLETED),
         "task2": TaskResult(task_id="task2", status=TaskStatus.FAILED),
     }
-    
+
     metrics = ExecutionMetrics(
         execution_id="test123",
         total_tasks=2,
         completed=1,
         failed=1,
     )
-    
+
     result = ExecutionResult(
         execution_id="test123",
         graph_name="test_graph",
@@ -104,7 +103,7 @@ def test_execution_result() -> None:
         dead_letter=["task2"],
         config={"max_concurrent": 5},
     )
-    
+
     assert result.execution_id == "test123"
     assert result.graph_name == "test_graph"
     assert result.status == ExecutionStatus.PARTIAL
@@ -114,17 +113,17 @@ def test_execution_result() -> None:
     assert result.completed_at == completed_at
     assert result.dead_letter == ["task2"]
     assert result.config == {"max_concurrent": 5}
-    
+
     # Test success property
     result.status = ExecutionStatus.COMPLETED
     assert result.success is True
-    
+
     result.status = ExecutionStatus.FAILED
     assert result.success is False
-    
+
     # Test duration_seconds
     assert result.duration_seconds == 10.0
-    
+
     # Test with None completed_at
     result.completed_at = None
     assert result.duration_seconds is None
@@ -141,9 +140,9 @@ def test_execution_aborted_error() -> None:
         started_at=datetime.now(),
         completed_at=datetime.now(),
     )
-    
+
     error = ExecutionAbortedError("task1", result)
-    
+
     assert error.failed_task_id == "task1"
     assert error.result == result
     assert "task1" in str(error)
@@ -153,10 +152,10 @@ def test_task_errors() -> None:
     """Test task error classes."""
     recoverable = TaskExecutionError("Recoverable error")
     fatal = TaskFatalError("Fatal error")
-    
+
     assert str(recoverable) == "Recoverable error"
     assert str(fatal) == "Fatal error"
-    
+
     # They should be distinct exception types
     assert isinstance(recoverable, Exception)
     assert isinstance(fatal, Exception)

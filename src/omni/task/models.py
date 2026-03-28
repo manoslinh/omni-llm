@@ -22,6 +22,8 @@ class TaskStatus(StrEnum):
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
+    SKIPPED = "skipped"
+    CANCELLED = "cancelled"
 
     def __str__(self) -> str:
         return self.value
@@ -186,7 +188,12 @@ class Task:
     @property
     def is_terminal(self) -> bool:
         """Whether the task is in a terminal state."""
-        return self.status in (TaskStatus.COMPLETED, TaskStatus.FAILED)
+        return self.status in (
+            TaskStatus.COMPLETED,
+            TaskStatus.FAILED,
+            TaskStatus.SKIPPED,
+            TaskStatus.CANCELLED
+        )
 
     @property
     def can_retry(self) -> bool:

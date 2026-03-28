@@ -50,7 +50,7 @@ class ExecutionMetrics:
         self.cancelled = sum(1 for r in results.values() if r.status == "cancelled")
         self.running = 0  # Will be updated by engine
         self.pending = self.total_tasks - (self.completed + self.failed + self.skipped + self.cancelled + self.running)
-        
+
         # Update token and cost totals
         self.total_tokens_used = sum(r.tokens_used for r in results.values())
         self.total_cost = sum(r.cost for r in results.values())
@@ -95,7 +95,7 @@ class TaskFatalError(Exception):
 
 class ExecutionAbortedError(Exception):
     """Execution aborted due to fail_fast."""
-    
+
     def __init__(self, failed_task_id: str, result: ExecutionResult) -> None:
         self.failed_task_id = failed_task_id
         self.result = result

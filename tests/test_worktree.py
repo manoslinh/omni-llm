@@ -75,6 +75,7 @@ class TestWorktreeInfo:
 class TestWorktreeManager:
     """Test WorktreeManager class."""
 
+    @pytest.mark.asyncio
     async def test_create_worktree(self, manager):
         """Test basic worktree creation."""
         info = await manager.create("task-001")
@@ -88,12 +89,14 @@ class TestWorktreeManager:
         # Verify it's tracked
         assert await manager.get("task-001") == info
 
+    @pytest.mark.asyncio
     async def test_create_duplicate_raises(self, manager):
         """Test that creating duplicate worktree raises error."""
         await manager.create("task-001")
         with pytest.raises(WorktreeExistsError):
             await manager.create("task-001")
 
+    @pytest.mark.asyncio
     async def test_create_max_limit(self, manager):
         """Test max_worktrees limit."""
         # Create max worktrees
@@ -104,6 +107,7 @@ class TestWorktreeManager:
         with pytest.raises(WorktreeError, match="max worktrees"):
             await manager.create("task-extra")
 
+    @pytest.mark.asyncio
     async def test_create_with_custom_base_branch(self, manager, git_repo):
         """Test creating worktree from custom base branch."""
         # Create a feature branch
@@ -118,6 +122,7 @@ class TestWorktreeManager:
         assert info.base_branch == "feature-branch"
         assert (info.path / "feature.txt").exists()
 
+    @pytest.mark.asyncio
     async def test_remove_worktree(self, manager):
         """Test worktree removal."""
         info = await manager.create("task-001")
@@ -127,11 +132,13 @@ class TestWorktreeManager:
         assert await manager.get("task-001") is None
         assert not info.path.exists()
 
+    @pytest.mark.asyncio
     async def test_remove_nonexistent_raises(self, manager):
         """Test removing nonexistent worktree raises error."""
         with pytest.raises(WorktreeNotFoundError):
             await manager.remove("nonexistent")
 
+    @pytest.mark.asyncio
     async def test_remove_idempotent(self, manager):
         """Test remove is idempotent."""
         await manager.create("task-001")
@@ -139,6 +146,7 @@ class TestWorktreeManager:
         # Second remove should NOT raise
         await manager.remove("task-001")
 
+    @pytest.mark.asyncio
     async def test_list_active(self, manager):
         """Test listing active worktrees."""
         assert await manager.list_active() == []
@@ -151,6 +159,7 @@ class TestWorktreeManager:
         assert info1 in active
         assert info2 in active
 
+    @pytest.mark.asyncio
     async def test_isolation(self, manager):
         """Test that changes in one worktree don't affect another."""
         info1 = await manager.create("task-001")
@@ -165,6 +174,7 @@ class TestWorktreeManager:
         # Main repo should NOT have this file
         assert not (manager._repo.path / "new_file.txt").exists()
 
+    @pytest.mark.asyncio
     async def test_merge_to_main_success(self, manager, git_repo):
         """Test successful merge to main."""
         info = await manager.create("task-001")
@@ -186,6 +196,7 @@ class TestWorktreeManager:
         # Worktree should be cleaned up
         assert await manager.get("task-001") is None
 
+    @pytest.mark.asyncio
     async def test_merge_to_main_conflict(self, manager, git_repo):
         """Test merge with conflict returns False."""
         info = await manager.create("task-001")
@@ -206,10 +217,12 @@ class TestWorktreeManager:
         # Worktree should still exist
         assert await manager.get("task-001") is not None
 
+    @pytest.mark.asyncio
     async def test_prune(self, manager):
         """Test prune runs without error."""
         await manager.prune()  # Should not raise
 
+    @pytest.mark.asyncio
     async def test_cleanup_stale(self, manager):
         """Test cleanup of stale worktrees."""
         info = await manager.create("task-001")
@@ -221,6 +234,7 @@ class TestWorktreeManager:
         assert "task-001" in cleaned
         assert await manager.get("task-001") is None
 
+    @pytest.mark.asyncio
     async def test_cleanup_all(self, manager):
         """Test cleanup of all worktrees."""
         await manager.create("task-001")
@@ -232,6 +246,7 @@ class TestWorktreeManager:
         assert set(cleaned) == {"task-001", "task-002"}
         assert await manager.list_active() == []
 
+    @pytest.mark.asyncio
     async def test_get_diff(self, manager):
         """Test getting diff of worktree changes."""
         info = await manager.create("task-001")
@@ -243,6 +258,7 @@ class TestWorktreeManager:
         assert "new.txt" in diff
         assert "new content" in diff
 
+    @pytest.mark.asyncio
     async def test_has_changes(self, manager):
         """Test checking for uncommitted changes."""
         info = await manager.create("task-001")
@@ -254,6 +270,7 @@ class TestWorktreeManager:
         (info.path / "dirty.txt").write_text("uncommitted")
         assert await manager.has_changes("task-001")
 
+    @pytest.mark.asyncio
     async def test_commit_in_worktree(self, manager):
         """Test committing changes in worktree."""
         info = await manager.create("task-001")
@@ -271,6 +288,7 @@ class TestWorktreeManager:
         assert len(log) == 1
         assert "Add new file" in log[0].message
 
+    @pytest.mark.asyncio
     async def test_commit_in_worktree_no_changes(self, manager):
         """Test committing when no changes exist."""
         await manager.create("task-001")
@@ -282,6 +300,7 @@ class TestWorktreeManager:
 class TestWorktreeEnv:
     """Test WorktreeEnv context manager."""
 
+    @pytest.mark.asyncio
     async def test_context_manager_creates_and_cleans(self, manager):
         """Test WorktreeEnv creates and cleans up worktree."""
         async with WorktreeEnv(manager, "task-001") as env:
@@ -291,6 +310,7 @@ class TestWorktreeEnv:
         # After exit, worktree should be cleaned up
         assert await manager.get("task-001") is None
 
+    @pytest.mark.asyncio
     async def test_context_manager_keeps_on_failure(self, manager):
         """Test WorktreeEnv keeps worktree on failure."""
         with pytest.raises(RuntimeError):
@@ -303,6 +323,7 @@ class TestWorktreeEnv:
         assert info is not None
         assert (info.path / "code.py").exists()
 
+    @pytest.mark.asyncio
     async def test_context_manager_cleans_on_failure_when_configured(self, manager):
         """Test WorktreeEnv cleans worktree on failure when configured."""
         with pytest.raises(RuntimeError):
@@ -313,6 +334,7 @@ class TestWorktreeEnv:
         # Worktree should be cleaned up
         assert await manager.get("task-001") is None
 
+    @pytest.mark.asyncio
     async def test_aexit_force_fallback(self, manager, monkeypatch):
         """Test __aexit__ tries force removal if normal removal fails."""
         # Create worktree normally
@@ -339,6 +361,7 @@ class TestWorktreeEnv:
         assert ("remove", "task-001", False) in call_log
         assert ("remove", "task-001", True) in call_log
 
+    @pytest.mark.asyncio
     async def test_aexit_never_raises(self, manager, monkeypatch):
         """Test __aexit__ swallows cleanup errors."""
         await manager.create("task-001")

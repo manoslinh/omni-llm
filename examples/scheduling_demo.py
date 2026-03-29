@@ -14,18 +14,18 @@ import logging
 from unittest.mock import Mock
 
 from omni.execution.adjuster import ScheduleAdjuster
-from omni.scheduling.predictive import (
-    BottleneckDetector,
-    DemandForecaster,
-    WorkloadTracker,
-)
-from omni.scheduling.resource_pool import GlobalResourceManager, ResourcePool
 from omni.scheduling.policies import (
     BalancedPolicy,
     DeadlinePolicy,
     FIFOPolicy,
     PriorityPolicy,
 )
+from omni.scheduling.predictive import (
+    BottleneckDetector,
+    DemandForecaster,
+    WorkloadTracker,
+)
+from omni.scheduling.resource_pool import GlobalResourceManager, ResourcePool
 from omni.task.models import Task
 
 

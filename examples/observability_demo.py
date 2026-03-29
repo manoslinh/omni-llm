@@ -72,7 +72,7 @@ def create_sample_task_graph() -> TaskGraph:
     return graph
 
 
-def demo_dashboard() -> None:
+async def demo_dashboard() -> None:
     """Demonstrate the live ASCII dashboard."""
     print("=" * 60)
     print("DEMO 1: Live ASCII Dashboard")
@@ -340,7 +340,7 @@ async def main() -> None:
     print("=" * 60)
 
     # Demo 1: Live Dashboard
-    demo_dashboard()
+    await demo_dashboard()
 
     # Demo 2: Mermaid Snapshots
     demo_mermaid_snapshots()

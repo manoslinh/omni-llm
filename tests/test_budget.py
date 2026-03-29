@@ -30,12 +30,14 @@ from omni.router.models import RoutingContext
 
 
 @pytest.fixture
-def budget_config() -> BudgetConfig:
+def budget_config(tmp_path: Path) -> BudgetConfig:
     """Create a BudgetConfig with test settings."""
+    state_file = tmp_path / "budget_state.json"
     return BudgetConfig(
         daily_limit=10.0,
         per_session_limit=2.0,
         warning_thresholds=[0.8, 0.9, 0.95],
+        state_file=state_file,
     )
 
 

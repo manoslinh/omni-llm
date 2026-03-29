@@ -17,7 +17,7 @@ import sys
 # Add the project root to the Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.omni.scheduling.resource_pool import ResourcePool
+from omni.scheduling.resource_pool import ResourcePool
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

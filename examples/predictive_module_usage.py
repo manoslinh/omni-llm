@@ -11,7 +11,7 @@ import time
 # Add the project root to the Python path
 sys.path.insert(0, ".")
 
-from src.omni.scheduling.predictive import (
+from omni.scheduling.predictive import (
     BottleneckDetector,
     DemandForecaster,
     ExecutionRecord,

@@ -12,12 +12,12 @@ import time
 # Add project root to path
 sys.path.insert(0, '.')
 
-from src.omni.execution.config import ExecutionConfig
-from src.omni.execution.scheduler import Scheduler
-from src.omni.scheduling.policies import (
+from omni.execution.config import ExecutionConfig
+from omni.execution.scheduler import Scheduler
+from omni.scheduling.policies import (
     get_policy,
 )
-from src.omni.task.models import Task, TaskGraph, TaskStatus
+from omni.task.models import Task, TaskGraph, TaskStatus
 
 
 async def run_example_with_policy(policy_name: str, policy_kwargs: dict = None) -> None:

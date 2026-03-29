@@ -15,8 +15,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.omni.execution.adjuster import ScheduleAdjuster
-from src.omni.task.models import Task, TaskType
+from omni.execution.adjuster import ScheduleAdjuster
+from omni.task.models import Task, TaskType
 
 
 class DemoTaskMatcher:

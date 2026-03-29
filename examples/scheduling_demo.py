@@ -20,13 +20,13 @@ from omni.scheduling.predictive import (
     WorkloadTracker,
 )
 from omni.scheduling.resource_pool import GlobalResourceManager, ResourcePool
-from omni.task.models import Task
-from src.omni.scheduling.policies import (
+from omni.scheduling.policies import (
     BalancedPolicy,
     DeadlinePolicy,
     FIFOPolicy,
     PriorityPolicy,
 )
+from omni.task.models import Task
 
 
 def demo_scheduling_policies():

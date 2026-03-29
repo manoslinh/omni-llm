@@ -16,6 +16,16 @@ from ..models.provider import Message, MessageRole, ModelProvider
 from ..observability.cli import register_execute_command
 from ..task.models import Task, TaskType
 
+# Import setup wizard
+SETUP_AVAILABLE = False
+setup_command: click.Command | None = None
+try:
+    from .setup import setup as setup_fn
+    SETUP_AVAILABLE = True
+    setup_command = setup_fn
+except ImportError:
+    pass
+
 # Import orchestration modules for new commands
 try:
     from ..coordination import CoordinationEngine
@@ -65,6 +75,20 @@ def config() -> None:
     click.echo("  - ANTHROPIC_API_KEY")
     click.echo("  - GOOGLE_API_KEY")
     click.echo("  - DEEPSEEK_API_KEY")
+    click.echo("\nOr use the interactive setup wizard:")
+    click.echo("  omni setup")
+
+
+@cli.command()
+def setup() -> None:
+    """Interactive setup wizard for Omni-LLM."""
+    if not SETUP_AVAILABLE or setup_command is None:
+        click.echo("❌ Setup wizard not available")
+        click.echo("Make sure rich is installed: pip install rich")
+        return
+
+    # Call the setup command
+    setup_command()
 
 
 @cli.command()

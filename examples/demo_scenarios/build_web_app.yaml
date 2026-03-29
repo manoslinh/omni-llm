@@ -1,0 +1,49 @@
+name: Build a Simple Web App
+description: Build a simple web app with user authentication
+goal: Create a full-stack web application with user registration, login, and a dashboard
+
+subtasks:
+  - id: backend
+    name: Backend API
+    description: Create Python/FastAPI backend with REST endpoints
+    type: coding
+    estimated_tokens: 1500
+    complexity: 0.6
+    
+  - id: auth
+    name: Authentication System
+    description: Implement JWT-based authentication with password hashing
+    type: coding
+    estimated_tokens: 1200
+    complexity: 0.7
+    
+  - id: frontend
+    name: Frontend UI
+    description: Create React frontend with responsive design
+    type: coding
+    estimated_tokens: 2000
+    complexity: 0.5
+    
+  - id: database
+    name: Database Schema
+    description: Design and implement PostgreSQL database schema
+    type: coding
+    estimated_tokens: 800
+    complexity: 0.4
+
+dependencies:
+  - from: database
+    to: backend
+  - from: backend
+    to: auth
+
+cost_rates:
+  coding:
+    input: 1.0
+    output: 3.0
+
+metadata:
+  estimated_total_tokens: 5500
+  typical_agents_needed: 4
+  parallelizable: true
+  educational_focus: task_decomposition

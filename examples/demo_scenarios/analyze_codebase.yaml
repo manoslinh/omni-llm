@@ -1,0 +1,48 @@
+name: Analyze a Codebase
+description: Comprehensive analysis of a codebase
+goal: Analyze a Python codebase for architecture, quality, and technical debt
+
+subtasks:
+  - id: architecture
+    name: Architecture Review
+    description: Review overall architecture, design patterns, and module organization
+    type: architecture
+    estimated_tokens: 1500
+    complexity: 0.8
+    
+  - id: quality
+    name: Code Quality Analysis
+    description: Analyze code quality metrics, linting results, and style consistency
+    type: analysis
+    estimated_tokens: 1000
+    complexity: 0.5
+    
+  - id: security
+    name: Security Review
+    description: Identify security vulnerabilities, best practices, and potential risks
+    type: analysis
+    estimated_tokens: 1200
+    complexity: 0.7
+    
+  - id: dependencies
+    name: Dependency Analysis
+    description: Analyze dependencies, version compatibility, and update recommendations
+    type: analysis
+    estimated_tokens: 800
+    complexity: 0.4
+
+dependencies: []  # All can run in parallel
+
+cost_rates:
+  architecture:
+    input: 2.0
+    output: 6.0
+  analysis:
+    input: 0.8
+    output: 2.4
+
+metadata:
+  estimated_total_tokens: 4500
+  typical_agents_needed: 4
+  parallelizable: true
+  educational_focus: parallel_execution

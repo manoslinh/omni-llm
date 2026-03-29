@@ -198,10 +198,10 @@ class ModelRouter:
 
     def get_provider(self, model_id: str) -> ModelProvider:
         """
-        Get a provider for a model ID.
+        Get a provider for a model ID or provider name.
 
         Args:
-            model_id: Model identifier
+            model_id: Model identifier or provider name
 
         Returns:
             ModelProvider instance
@@ -215,6 +215,7 @@ class ModelRouter:
 
         # Try to find a provider using the registry
         if self.config.provider_registry:
+            # Try lookup by model ID (e.g., "openai/gpt-4")
             providers = self.config.provider_registry.get_providers_for_model(model_id)
             if providers:
                 # Get the first provider (sorted by success rate)
@@ -222,6 +223,11 @@ class ModelRouter:
                 provider = self.config.provider_registry.get_provider(provider_name)
                 if provider:
                     return provider
+
+            # Try lookup by provider name (e.g., "openai")
+            provider = self.config.provider_registry.get_provider(model_id)
+            if provider:
+                return provider
 
         # Fallback to legacy heuristic
         for provider_id, provider in self._provider_cache.items():
@@ -550,7 +556,7 @@ class ModelRouter:
         Get providers that support a specific capability.
 
         Args:
-            capability: Capability to filter by
+            capability: Capability to filter by (e.g., "streaming", "supports_streaming")
 
         Returns:
             List of provider names
@@ -558,8 +564,26 @@ class ModelRouter:
         if not self.config.provider_registry:
             return []
 
+        # Normalize capability string
+        cap_name = capability
+        if cap_name.startswith("supports_"):
+            cap_name = cap_name[len("supports_"):]
+
+        capability_mapping = {
+            "streaming": "streaming",
+            "tools": "function_calling",
+            "function_calling": "function_calling",
+            "vision": "vision",
+            "audio": "audio",
+            "long_context": "long_context",
+            "embeddings": "embeddings",
+            "fine_tuning": "fine_tuning",
+            "batch_processing": "batch_processing",
+        }
+
+        mapped_cap = capability_mapping.get(cap_name, cap_name)
         try:
-            cap_enum = Capability(capability)
+            cap_enum = Capability(mapped_cap)
             return self.config.provider_registry.get_providers_by_capability(cap_enum)
         except ValueError:
             logger.warning(f"Unknown capability: {capability}")
@@ -567,31 +591,46 @@ class ModelRouter:
 
     def find_providers_by_capability(self, capability: str, value: bool = True) -> list[str]:
         """
-        Alias for get_providers_by_capability for backward compatibility.
-        
+        Find providers by capability. Supports both Capability enum values
+        and common capability strings like "supports_streaming", "supports_tools".
+
         Args:
-            capability: Capability to filter by
+            capability: Capability to filter by (e.g., "streaming", "supports_streaming")
             value: Required value (default True, ignored for compatibility)
 
         Returns:
             List of provider names
         """
-        return self.get_providers_by_capability(capability)
-        """
-        Get providers that support a specific capability.
-
-        Args:
-            capability: Capability to filter by
-
-        Returns:
-            List of provider names
-        """
         if not self.config.provider_registry:
-            return []
+            raise RuntimeError("Provider registry not configured")
 
+        # Normalize capability string
+        cap_name = capability
+        if cap_name.startswith("supports_"):
+            cap_name = cap_name[len("supports_"):]
+
+        # Map common capability strings to Capability enum values
+        capability_mapping = {
+            "streaming": "streaming",
+            "tools": "function_calling",
+            "function_calling": "function_calling",
+            "vision": "vision",
+            "audio": "audio",
+            "long_context": "long_context",
+            "embeddings": "embeddings",
+            "fine_tuning": "fine_tuning",
+            "batch_processing": "batch_processing",
+        }
+
+        mapped_cap = capability_mapping.get(cap_name, cap_name)
         try:
-            cap_enum = Capability(capability)
-            return self.config.provider_registry.get_providers_by_capability(cap_enum)
+            cap_enum = Capability(mapped_cap)
+            providers = self.config.provider_registry.get_providers_by_capability(cap_enum)
+            # If value=False, filter OUT providers that have the capability
+            if not value:
+                all_providers = self.config.provider_registry.get_all_providers()
+                providers = [p for p in all_providers if p not in providers]
+            return providers
         except ValueError:
             logger.warning(f"Unknown capability: {capability}")
             return []
@@ -617,26 +656,57 @@ class ModelRouter:
 
         Returns:
             Dictionary of capabilities, or None if provider not found
+
+        Raises:
+            RuntimeError: If provider registry is not configured
         """
+        if not self.config.provider_registry:
+            raise RuntimeError("Provider registry not configured")
+
         metadata = self.get_provider_metadata(provider_name)
         if not metadata:
             return None
 
+        # Map Capability enum values to feature strings
+        capability_to_feature = {
+            "streaming": "streaming",
+            "function_calling": "tools",
+            "vision": "vision",
+            "audio": "audio",
+            "long_context": "long_context",
+            "embeddings": "embeddings",
+            "fine_tuning": "fine_tuning",
+            "batch_processing": "batch_processing",
+        }
+
         if model_id:
             # Return model-specific capabilities
-            # This is a simplified implementation
+            # First check for stored model capabilities from discovery
+            stored_model_caps = metadata.get("model_capabilities", {}).get(model_id)
+            if stored_model_caps:
+                return dict(stored_model_caps)
+
+            # Fall back to building from provider-level capabilities
             model_caps = {}
-            if "supports_streaming" in metadata.get("features", []):
-                model_caps["supports_streaming"] = True
+            capabilities = metadata.get("capabilities", [])
+            for cap in capabilities:
+                feature_name = capability_to_feature.get(cap, cap)
+                model_caps[f"supports_{feature_name}"] = True
+            # Add max_context_tokens if available
             if "max_context_tokens" in metadata:
-                model_caps["max_context_tokens"] = metadata.get("max_context_tokens")
-            # Add more model-specific capabilities as needed
+                model_caps["max_context_tokens"] = metadata["max_context_tokens"]
             return model_caps
         else:
             # Return provider-level capabilities
+            features = []
+            capabilities = metadata.get("capabilities", [])
+            for cap in capabilities:
+                feature_name = capability_to_feature.get(cap, cap)
+                features.append(feature_name)
+
             return {
-                "models": metadata.get("models", []),
-                "features": metadata.get("features", [])
+                "models": list(metadata.get("supported_models", [])),
+                "features": features,
             }
 
     def get_provider_metadata(self, provider_name: str) -> dict | None:
@@ -655,7 +725,7 @@ class ModelRouter:
         metadata = self.config.provider_registry.get_metadata(provider_name)
         if metadata:
             # Convert to dictionary for easier consumption
-            return {
+            result = {
                 'name': metadata.name,
                 'provider_type': metadata.provider_type,
                 'description': metadata.description,
@@ -667,4 +737,11 @@ class ModelRouter:
                 'status_message': metadata.status_message,
                 'last_checked': metadata.last_checked,
             }
+            # Include model capabilities if available
+            if metadata.model_capabilities:
+                result['model_capabilities'] = {
+                    model_id: dict(caps)
+                    for model_id, caps in metadata.model_capabilities.items()
+                }
+            return result
         return None

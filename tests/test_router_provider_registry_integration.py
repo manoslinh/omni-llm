@@ -19,42 +19,56 @@ sys.path.insert(0, "src")
 from omni.models.provider import CompletionResult, ModelCapabilities, TokenUsage
 from omni.router import ModelRouter, ProviderRegistry, RouterConfig
 
-# Skip integration tests - router/provider registry API needs proper implementation
-# These tests are unrelated to P2-16 Git worktree feature
-# TODO: Fix router/provider registry integration separately
-pytestmark = pytest.mark.skip(reason="Router/Provider registry integration needs proper implementation separate from P2-16")
 
 # ── Test Fixtures ──────────────────────────────────────────────────────────
 
 
+def _make_mock_provider(
+    name: str,
+    models: list[str],
+    capabilities: ModelCapabilities,
+) -> MagicMock:
+    """Create a mock provider that implements the ModelProvider protocol."""
+    provider = MagicMock()
+    provider.name = name
+    provider.supports_streaming = capabilities.supports_streaming
+    provider.supports_tools = capabilities.supports_tools
+    provider.list_models.return_value = models
+    provider.get_capabilities.return_value = capabilities
+    provider.complete = AsyncMock()
+    provider.count_tokens.return_value = 10
+    provider.estimate_cost.return_value = 0.001
+    provider.close = AsyncMock()
+    provider.__class__.__name__ = f"{name.title()}Provider"
+    return provider
+
+
 @pytest.fixture
 def mock_provider() -> MagicMock:
-    """Create a mock model provider."""
-    provider = MagicMock()
-    provider.complete = AsyncMock()
-    provider.list_models.return_value = ["openai/gpt-4", "openai/gpt-3.5-turbo"]
-    provider.get_capabilities.return_value = ModelCapabilities(
-        supports_streaming=True,
-        supports_tools=True,
-        max_context_tokens=128000
+    """Create a mock OpenAI provider."""
+    return _make_mock_provider(
+        name="openai",
+        models=["openai/gpt-4", "openai/gpt-3.5-turbo"],
+        capabilities=ModelCapabilities(
+            supports_streaming=True,
+            supports_tools=True,
+            max_context_tokens=128000,
+        ),
     )
-    provider.__class__.__name__ = "OpenAIProvider"
-    return provider
 
 
 @pytest.fixture
 def mock_provider_anthropic() -> MagicMock:
     """Create a mock Anthropic provider."""
-    provider = MagicMock()
-    provider.complete = AsyncMock()
-    provider.list_models.return_value = ["anthropic/claude-3-opus", "anthropic/claude-3-sonnet"]
-    provider.get_capabilities.return_value = ModelCapabilities(
-        supports_streaming=True,
-        supports_tools=False,  # Claude doesn't support tools in this mock
-        max_context_tokens=200000
+    return _make_mock_provider(
+        name="anthropic",
+        models=["anthropic/claude-3-opus", "anthropic/claude-3-sonnet"],
+        capabilities=ModelCapabilities(
+            supports_streaming=True,
+            supports_tools=False,  # Claude doesn't support tools in this mock
+            max_context_tokens=200000,
+        ),
     )
-    provider.__class__.__name__ = "AnthropicProvider"
-    return provider
 
 
 @pytest.fixture
@@ -116,11 +130,12 @@ def test_router_initialization_with_registry(router_with_registry: ModelRouter) 
 
     # Should have providers cached from registry
     assert hasattr(router, "_provider_cache")
-    # openai provider should be in cache
-    assert "openai" in router._provider_cache
-    # Models from openai provider should also be in cache
-    assert "openai/gpt-4" in router._provider_cache
-    assert "openai/gpt-3.5-turbo" in router._provider_cache
+    # openai provider should be retrievable by name
+    provider = router.get_provider("openai")
+    assert provider is not None
+    # Models from openai provider should also be retrievable
+    assert router.get_provider("openai/gpt-4") is not None
+    assert router.get_provider("openai/gpt-3.5-turbo") is not None
 
 
 def test_get_provider_via_registry(router_with_registry: ModelRouter, mock_provider: MagicMock) -> None:
@@ -149,7 +164,7 @@ def test_get_provider_with_both_sources(router_with_both: ModelRouter, mock_prov
     """Test provider lookup with both registry and legacy providers."""
     router = router_with_both
 
-    # Should find provider from registry
+    # Should find provider from registry by name
     provider = router.get_provider("openai")
     assert provider is mock_provider
 
@@ -175,8 +190,8 @@ def test_list_providers_legacy(router_with_legacy_providers: ModelRouter) -> Non
 
     providers = router.list_providers()
 
-    # Should extract provider class names
-    assert "OpenAIProvider" in providers
+    # Provider registered via legacy path uses provider.name = "openai"
+    assert "openai" in providers
     assert len(providers) == 1
 
 
@@ -187,22 +202,30 @@ def test_get_provider_capabilities(router_with_registry: ModelRouter) -> None:
     # Get provider-level capabilities
     caps = router.get_provider_capabilities("openai")
 
+    assert caps is not None
     assert "models" in caps
     assert "features" in caps
     assert "openai/gpt-4" in caps["models"]
+    assert "openai/gpt-3.5-turbo" in caps["models"]
     assert "streaming" in caps["features"]
+    assert "tools" in caps["features"]
 
     # Get model-level capabilities
     model_caps = router.get_provider_capabilities("openai", "openai/gpt-4")
 
+    assert model_caps is not None
     assert "supports_streaming" in model_caps
     assert model_caps["supports_streaming"] is True
     assert "max_context_tokens" in model_caps
+    assert model_caps["max_context_tokens"] == 128000
 
 
-def test_get_provider_capabilities_no_registry(router_with_legacy_providers: ModelRouter) -> None:
+def test_get_provider_capabilities_no_registry() -> None:
     """Test getting capabilities when no registry is configured."""
-    router = router_with_legacy_providers
+    config = RouterConfig(providers={})
+    # Clear the auto-created registry
+    config.provider_registry = None
+    router = ModelRouter(config)
 
     with pytest.raises(RuntimeError, match="Provider registry not configured"):
         router.get_provider_capabilities("openai")
@@ -227,9 +250,11 @@ def test_find_providers_by_capability(router_with_registry: ModelRouter) -> None
     assert len(tools_providers) == 1
 
 
-def test_find_providers_by_capability_no_registry(router_with_legacy_providers: ModelRouter) -> None:
+def test_find_providers_by_capability_no_registry() -> None:
     """Test finding providers by capability when no registry is configured."""
-    router = router_with_legacy_providers
+    config = RouterConfig(providers={})
+    config.provider_registry = None
+    router = ModelRouter(config)
 
     with pytest.raises(RuntimeError, match="Provider registry not configured"):
         router.find_providers_by_capability("supports_streaming", True)
@@ -237,16 +262,16 @@ def test_find_providers_by_capability_no_registry(router_with_legacy_providers: 
 
 def test_register_provider_with_registry(
     router_with_registry: ModelRouter,
-    mock_provider: MagicMock
 ) -> None:
     """Test register_provider method with registry integration."""
     router = router_with_registry
 
     # Register a new provider
-    new_provider = MagicMock()
-    new_provider.list_models.return_value = ["new-model"]
-    new_provider.get_capabilities.return_value = ModelCapabilities()
-    new_provider.__class__.__name__ = "NewProvider"
+    new_provider = _make_mock_provider(
+        name="new-provider",
+        models=["new-model"],
+        capabilities=ModelCapabilities(),
+    )
 
     router.register_provider("new-provider", new_provider)
 
@@ -262,7 +287,7 @@ def test_register_provider_with_registry(
 
 def test_router_completion_with_registry_provider(
     router_with_registry: ModelRouter,
-    mock_provider: MagicMock
+    mock_provider: MagicMock,
 ) -> None:
     """Test router completion works with providers from registry."""
     router = router_with_registry
@@ -272,37 +297,36 @@ def test_router_completion_with_registry_provider(
         content="Test response",
         model="openai/gpt-4",
         usage=TokenUsage(prompt_tokens=10, completion_tokens=20, total_tokens=30),
-        finish_reason="stop"
+        finish_reason="stop",
     )
     mock_provider.complete.return_value = mock_result
 
-    # Mock strategy to return openai/gpt-4
-    from unittest.mock import MagicMock as Mock
-    mock_strategy = Mock()
-    mock_strategy.name = "test-strategy"
-    mock_strategy.rank_models.return_value = []
-    mock_strategy.select_model.return_value = None
-    mock_strategy.estimate_cost.return_value = None
-
-    # This would need more setup for a full integration test
-    # For now, just verify the provider can be retrieved
+    # Verify the provider can be retrieved by model name
     provider = router.get_provider("openai/gpt-4")
+    assert provider is mock_provider
+
+    # Verify the provider can be retrieved by provider name
+    provider = router.get_provider("openai")
     assert provider is mock_provider
 
 
 def test_backward_compatibility_registration(
     router_with_registry: ModelRouter,
-    mock_provider: MagicMock
 ) -> None:
     """Test that register_provider works for backward compatibility."""
     router = router_with_registry
 
-    # Register using the old method
-    router.register_provider("legacy-model", mock_provider)
+    # Register using the register_provider method
+    legacy_provider = _make_mock_provider(
+        name="legacy-model",
+        models=["legacy-model"],
+        capabilities=ModelCapabilities(),
+    )
+    router.register_provider("legacy-model", legacy_provider)
 
     # Should be retrievable
     provider = router.get_provider("legacy-model")
-    assert provider is mock_provider
+    assert provider is legacy_provider
 
     # Should also be in registry
     assert "legacy-model" in router.get_provider_registry()

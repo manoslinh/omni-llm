@@ -48,6 +48,17 @@ class ModelProvider(Protocol):
     async def close(self) -> None:
         ...
 
+    # Optional properties and methods for capability discovery
+    @property
+    def supports_tools(self) -> bool:
+        ...
+
+    def list_models(self) -> list[str]:
+        ...
+
+    def get_capabilities(self, model: str) -> Any:
+        ...
+
 logger = logging.getLogger(__name__)
 
 

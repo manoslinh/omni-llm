@@ -5,19 +5,7 @@ Provides ParallelExecutionEngine for executing TaskGraph objects in parallel
 with dependency resolution, retry logic, and persistence.
 """
 
-from .config import ExecutionCallbacks, ExecutionConfig, ExecutionContext
-from .db import ExecutionDB
-from .engine import ParallelExecutionEngine
-from .executor import LLMTaskExecutor, MockTaskExecutor, TaskExecutor
-from .models import (
-    ExecutionAbortedError,
-    ExecutionMetrics,
-    ExecutionResult,
-    ExecutionStatus,
-    TaskExecutionError,
-    TaskFatalError,
-)
-from .policies import (
+from ..scheduling.policies import (
     BalancedPolicy,
     CostAwarePolicy,
     DeadlinePolicy,
@@ -30,7 +18,27 @@ from .policies import (
     SchedulingScore,
     get_policy,
 )
+from .config import ExecutionCallbacks, ExecutionConfig, ExecutionContext
+from .db import ExecutionDB
+from .engine import ParallelExecutionEngine
+from .executor import LLMTaskExecutor, MockTaskExecutor, TaskExecutor
+from .models import (
+    ExecutionAbortedError,
+    ExecutionMetrics,
+    ExecutionResult,
+    ExecutionStatus,
+    TaskExecutionError,
+    TaskFatalError,
+)
 from .scheduler import Scheduler
+
+# Re-export WorktreeEnv from git module for convenience
+try:
+    from ..git.worktree import WorktreeEnv
+    __has_worktree = True
+except ImportError:
+    __has_worktree = False
+    WorktreeEnv = None  # type: ignore
 
 __all__ = [
     # Main engine
@@ -73,3 +81,7 @@ __all__ = [
     "BalancedPolicy",
     "get_policy",
 ]
+
+# Conditionally add WorktreeEnv to __all__
+if __has_worktree:
+    __all__.append("WorktreeEnv")

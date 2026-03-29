@@ -193,6 +193,29 @@ class ProviderRegistry:
 
         logger.info(f"Registered provider '{provider_name}' with {len(metadata.capabilities)} capabilities")
 
+    def register_provider(
+        self,
+        provider_name: str,
+        provider: ModelProvider,
+        metadata: ProviderMetadata | None = None,
+        discover_capabilities: bool = True,
+    ) -> None:
+        """
+        Register a provider with the registry.
+        
+        Args:
+            provider_name: Name of the provider
+            provider: The provider instance to register
+            metadata: Optional metadata; if None, will be auto-discovered
+            discover_capabilities: Whether to auto-discover capabilities
+
+        Raises:
+            ValueError: If provider is already registered
+        """
+        # The provider object should have a name attribute
+        # But we use the provided provider_name for consistency
+        return self.register(provider, metadata, discover_capabilities)
+
     def unregister(self, provider_name: str) -> None:
         """
         Unregister a provider from the registry.

@@ -13,12 +13,12 @@ import asyncio
 import json
 from typing import Any
 
-from src.omni.execution.config import ExecutionContext
-from src.omni.execution.executor import LLMTaskExecutor
-from src.omni.providers.base import ChatCompletion, Message, MessageRole, TokenUsage
-from src.omni.providers.mock_provider import MockProvider
-from src.omni.router import ModelRouter, RouterConfig
-from src.omni.task.models import ComplexityEstimate, Task, TaskStatus, TaskType
+from omni.execution.config import ExecutionContext
+from omni.execution.executor import LLMTaskExecutor
+from omni.providers.base import ChatCompletion, Message, MessageRole, TokenUsage
+from omni.providers.mock_provider import MockProvider
+from omni.router import ModelRouter, RouterConfig
+from omni.task.models import ComplexityEstimate, Task, TaskStatus, TaskType
 
 
 class DemoMockProvider(MockProvider):
@@ -127,7 +127,7 @@ async def main() -> None:
     print("2. Testing task with dependencies...")
 
     # Create dependency results
-    from src.omni.task.models import TaskResult
+    from omni.task.models import TaskResult
 
     dependency_results = {
         "data_fetch": TaskResult(

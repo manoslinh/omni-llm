@@ -7,7 +7,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from omni.execution.policies import (
+from omni.task.models import Task
+from src.omni.scheduling.policies import (
     BalancedPolicy,
     CostAwarePolicy,
     DeadlinePolicy,
@@ -18,7 +19,6 @@ from omni.execution.policies import (
     SchedulingPolicy,
     get_policy,
 )
-from omni.task.models import Task
 
 
 def create_mock_task(task_id: str, priority: int = 50):

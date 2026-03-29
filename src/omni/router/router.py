@@ -565,6 +565,80 @@ class ModelRouter:
             logger.warning(f"Unknown capability: {capability}")
             return []
 
+    def find_providers_by_capability(self, capability: str, value: bool = True) -> list[str]:
+        """
+        Alias for get_providers_by_capability for backward compatibility.
+        
+        Args:
+            capability: Capability to filter by
+            value: Required value (default True, ignored for compatibility)
+
+        Returns:
+            List of provider names
+        """
+        return self.get_providers_by_capability(capability)
+        """
+        Get providers that support a specific capability.
+
+        Args:
+            capability: Capability to filter by
+
+        Returns:
+            List of provider names
+        """
+        if not self.config.provider_registry:
+            return []
+
+        try:
+            cap_enum = Capability(capability)
+            return self.config.provider_registry.get_providers_by_capability(cap_enum)
+        except ValueError:
+            logger.warning(f"Unknown capability: {capability}")
+            return []
+
+    def list_providers(self) -> list[str]:
+        """
+        List all registered providers.
+
+        Returns:
+            List of provider names
+        """
+        if not self.config.provider_registry:
+            return list(self.config.providers.keys())
+        return self.config.provider_registry.get_all_providers()
+
+    def get_provider_capabilities(self, provider_name: str, model_id: str | None = None) -> dict | None:
+        """
+        Get capabilities for a provider or specific model.
+
+        Args:
+            provider_name: Name of the provider
+            model_id: Optional model ID for model-specific capabilities
+
+        Returns:
+            Dictionary of capabilities, or None if provider not found
+        """
+        metadata = self.get_provider_metadata(provider_name)
+        if not metadata:
+            return None
+
+        if model_id:
+            # Return model-specific capabilities
+            # This is a simplified implementation
+            model_caps = {}
+            if "supports_streaming" in metadata.get("features", []):
+                model_caps["supports_streaming"] = True
+            if "max_context_tokens" in metadata:
+                model_caps["max_context_tokens"] = metadata.get("max_context_tokens")
+            # Add more model-specific capabilities as needed
+            return model_caps
+        else:
+            # Return provider-level capabilities
+            return {
+                "models": metadata.get("models", []),
+                "features": metadata.get("features", [])
+            }
+
     def get_provider_metadata(self, provider_name: str) -> dict | None:
         """
         Get metadata for a provider.

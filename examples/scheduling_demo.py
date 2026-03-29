@@ -14,7 +14,7 @@ import logging
 from unittest.mock import Mock
 
 from omni.execution.adjuster import ScheduleAdjuster
-from omni.execution.policies import (
+from omni.scheduling.policies import (
     BalancedPolicy,
     DeadlinePolicy,
     FIFOPolicy,

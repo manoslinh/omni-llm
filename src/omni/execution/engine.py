@@ -21,7 +21,6 @@ from .models import (
     ExecutionResult,
     ExecutionStatus,
 )
-from .policies import FIFOPolicy, SchedulingPolicyBase
 from .scheduler import Scheduler
 
 logger = logging.getLogger(__name__)
@@ -37,7 +36,8 @@ class ParallelExecutionEngine:
         config: ExecutionConfig | None = None,
         callbacks: ExecutionCallbacks | None = None,
         db_path: str | Path = "omni_executions.db",
-        policy: SchedulingPolicyBase | None = None,
+        worktree_manager: Any | None = None,  # WorktreeManager from omni.git
+        policy: Any | None = None,  # SchedulingPolicyBase from scheduling.policies
     ) -> None:
         """
         Args:
@@ -46,6 +46,7 @@ class ParallelExecutionEngine:
             config: Execution configuration
             callbacks: Optional callbacks for execution events
             db_path: Path to SQLite database for persistence
+            worktree_manager: Optional WorktreeManager for filesystem isolation
             policy: Scheduling policy to use (defaults to FIFO for backward compatibility)
         """
         self.graph = graph
@@ -53,7 +54,15 @@ class ParallelExecutionEngine:
         self.config = config or ExecutionConfig()
         self.callbacks = callbacks or ExecutionCallbacks()
         self.db = ExecutionDB(db_path)
-        self.policy = policy or FIFOPolicy()
+        self.worktree_manager = worktree_manager
+
+        # Import here to avoid circular imports
+        if policy is None:
+            # Use scheduling module policies (from PR #46)
+            from ..scheduling.policies import FIFOPolicy
+            self.policy = FIFOPolicy()
+        else:
+            self.policy = policy
 
         self.execution_id = uuid.uuid4().hex[:16]
         self.started_at: datetime | None = None
@@ -208,7 +217,7 @@ class ParallelExecutionEngine:
 
         async def execute_task(task: Task) -> Any:
             """Execute a single task with context."""
-            # Create execution context
+            # Create execution context (without worktree_path initially)
             context = ExecutionContext(
                 dependency_results={
                     dep_id: self.results[dep_id]
@@ -224,12 +233,32 @@ class ParallelExecutionEngine:
             if self.callbacks.on_task_start:
                 self.callbacks._safe_call(self.callbacks.on_task_start, task.task_id, task)
 
-            # Execute with timeout
+            # Execute with timeout, optionally with worktree isolation
             try:
-                result = await asyncio.wait_for(
-                    self.executor.execute(task, context),
-                    timeout=self.config.timeout_per_task,
-                )
+                if self.worktree_manager:
+                    # Import here to avoid circular imports
+                    from ..git.worktree import WorktreeEnv
+
+                    async with WorktreeEnv(
+                        manager=self.worktree_manager,
+                        task_id=task.task_id,
+                        base_branch="main",
+                        cleanup_on_success=True,
+                        cleanup_on_failure=False,
+                    ) as env:
+                        # Update context with worktree path if env created successfully
+                        if env and env.path:
+                            context.worktree_path = str(env.path)
+                        result = await asyncio.wait_for(
+                            self.executor.execute(task, context),
+                            timeout=self.config.timeout_per_task,
+                        )
+                else:
+                    # Execute without worktree isolation
+                    result = await asyncio.wait_for(
+                        self.executor.execute(task, context),
+                        timeout=self.config.timeout_per_task,
+                    )
                 return result
             except TimeoutError:
                 raise TimeoutError(f"Task {task.task_id} timed out after {self.config.timeout_per_task}s") from None

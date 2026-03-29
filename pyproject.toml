@@ -99,8 +99,11 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short"
+addopts = "-v --tb=short --ignore=omni-llm-worktrees"
 asyncio_mode = "strict"
+filterwarnings = [
+    "ignore::pytest.PytestRemovedIn9Warning"
+]
 
 [project.urls]
 Homepage = "https://github.com/manoslinh/omni-llm"

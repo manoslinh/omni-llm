@@ -8,15 +8,15 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from ..task.models import Task, TaskGraph, TaskStatus
-from .config import ExecutionConfig
-from .models import ExecutionAbortedError, TaskExecutionError, TaskFatalError
-from .policies import (
+from ..scheduling.policies import (
     FIFOPolicy,
     SchedulingContext,
     SchedulingPolicyBase,
     SchedulingScore,
 )
+from ..task.models import Task, TaskGraph, TaskStatus
+from .config import ExecutionConfig
+from .models import ExecutionAbortedError, TaskExecutionError, TaskFatalError
 
 logger = logging.getLogger(__name__)
 
@@ -158,12 +158,12 @@ class Scheduler:
         # Apply scheduling policy if we have ready tasks
         if ready:
             context = self._build_scheduling_context(ready)
-            scored = self.policy.rank_tasks(context)
-            self.scheduling_decisions.extend(scored)
+            scores = self.policy.rank_tasks(context)
+            self.scheduling_decisions.extend(scores)
 
             # Sort tasks by composite score (higher first)
-            task_order = [self.graph.tasks[s.task_id] for s in scored]
-            return task_order
+            score_map = {s.task_id: s.composite_score for s in scores}
+            ready.sort(key=lambda t: score_map.get(t.task_id, 0.0), reverse=True)
 
         return ready
 
@@ -187,18 +187,28 @@ class Scheduler:
             deadline = getattr(task, 'deadline', None)
             if deadline:
                 deadline_info[task.task_id] = deadline
+            else:
+                # Also check task context for deadline (backward compatibility)
+                if hasattr(task, 'context') and isinstance(task.context, dict):
+                    deadline_val = task.context.get('deadline')
+                    if deadline_val:
+                        deadline_info[task.task_id] = float(deadline_val)
 
-        # Get resource snapshot if resource manager is available
-        resource_snapshot = {}
-        if hasattr(self, 'resource_manager'):
-            resource_snapshot = self.resource_manager.get_status()
+        # Get resource snapshot
+        resource_snapshot = {
+            "concurrent_used": len(self.running_tasks),
+            "concurrent_available": self.config.max_concurrent - len(self.running_tasks),
+            "total_tasks": self.graph.size,
+        }
 
-        # Get agent availability if matcher is available
-        agent_availability: dict[str, Any] = {}
-        if hasattr(self, 'agent_matcher'):
-            # This would query the matcher for current agent loads
-            # For now, return empty dict as placeholder
-            pass
+        # Default agent availability (all available)
+        # In a real implementation, this would come from coordination engine
+        agent_availability = {
+            "intern": True,
+            "coder": True,
+            "reader": True,
+            "thinker": True,
+        }
 
         # Get cost budget remaining if cost tracker is available
         cost_budget_remaining = None

@@ -12,13 +12,23 @@ from .conflicts import (
     ResolutionStrategy,
 )
 from .integrator import OrchestrationResult, ResultIntegrator
+from .workflow import WorkflowEngine
+from .workflow_models import TaskType, VariableDef, WorkflowStep, WorkflowTemplate
 
 __all__ = [
+    # Workflow template engine
+    "WorkflowEngine",
+    "TaskType",
+    "VariableDef",
+    "WorkflowStep",
+    "WorkflowTemplate",
+    # Result integration
+    "OrchestrationResult",
+    "ResultIntegrator",
+    # Conflict resolution
     "ConflictResolver",
     "ConflictType",
     "FileConflict",
     "Resolution",
     "ResolutionStrategy",
-    "OrchestrationResult",
-    "ResultIntegrator",
 ]

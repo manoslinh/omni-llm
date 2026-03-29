@@ -1,0 +1,60 @@
+# Code Review Workflow Template
+# A reusable workflow for code review and fix cycles
+
+name: "Code Review Workflow"
+description: "Standard workflow for code review with automatic fixes"
+version: "1.0.0"
+
+variables:
+  file_path:
+    description: "Path to the file to review"
+    required: true
+    type: "string"
+  issue_description:
+    description: "Description of the issue to fix"
+    required: true
+    type: "string"
+  target_branch:
+    description: "Target branch for the fix"
+    default: "main"
+    type: "string"
+
+metadata:
+  category: "code-quality"
+  estimated_time: "15-30 minutes"
+  complexity: "medium"
+
+steps:
+  - name: "analyze_issue"
+    task_type: "analysis"
+    description: "Analyze the issue in {file_path}: {issue_description}"
+    files: ["{file_path}"]
+    model_override: "reader"  # Use reader for analysis
+
+  - name: "implement_fix"
+    task_type: "code_generation"
+    description: "Implement fix for issue in {file_path} based on analysis"
+    files: ["{file_path}"]
+    depends_on: ["analyze_issue"]
+    model_override: "coder"
+
+  - name: "review_fix"
+    task_type: "code_review"
+    description: "Review the implemented fix for {file_path}"
+    files: ["{file_path}"]
+    depends_on: ["implement_fix"]
+    model_override: "coder"  # Same tier reviewer
+
+  - name: "run_tests"
+    task_type: "testing"
+    description: "Run tests to ensure fix doesn't break existing functionality"
+    files: ["{file_path}"]
+    depends_on: ["review_fix"]
+    condition: "{run_tests_enabled}"  # Optional step
+
+  - name: "update_docs"
+    task_type: "documentation"
+    description: "Update documentation if needed for the fix"
+    files: ["{file_path}"]
+    depends_on: ["implement_fix"]
+    condition: "{update_docs}"  # Optional step

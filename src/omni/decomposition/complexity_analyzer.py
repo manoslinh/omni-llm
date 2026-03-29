@@ -46,11 +46,11 @@ class ComplexityAnalyzer:
 
     def _contains_word(self, text: str, word: str) -> bool:
         """Check if text contains word with word boundaries.
-        
+
         Args:
             text: Text to search in
             word: Word to search for
-            
+
         Returns:
             True if word is found with word boundaries, False otherwise
         """
@@ -240,7 +240,7 @@ class ComplexityAnalyzer:
 
         # Look for keywords that indicate high complexity
         description_lower = task.description.lower()
-        
+
         # Keywords indicating complex systems
         complex_keywords = [
             "complete", "full", "entire", "whole", "system", "application", "app",
@@ -250,17 +250,17 @@ class ComplexityAnalyzer:
             "auth", "login", "signup", "register", "password", "oauth", "jwt",
             "encryption", "cryptography", "ssl", "tls", "https"
         ]
-        
+
         # Keywords indicating multiple components
         multi_component_keywords = [
             "and", "with", "including", "plus", "along with", "together with",
             "combined", "integrated", "multiple"
         ]
-        
+
         # Count complex keywords with word boundary matching
         complex_count = sum(1 for keyword in complex_keywords if self._contains_word(description_lower, keyword))
         base_score += min(3, complex_count)  # Add up to 3 points for complexity
-        
+
         # Check for multiple technologies/components with word boundary matching
         if any(self._contains_word(description_lower, keyword) for keyword in multi_component_keywords):
             # Count distinct technologies mentioned with word boundary matching
@@ -295,24 +295,24 @@ class ComplexityAnalyzer:
 
         # Check for integration requirements in description
         description_lower = task.description.lower()
-        
+
         # Keywords indicating integration needs
         integration_keywords = [
             "integrate", "connect", "link", "combine", "interface", "api",
             "backend", "frontend", "database", "service", "microservice",
             "orchestrate", "coordinate", "synchronize", "bridge"
         ]
-        
+
         # Keywords indicating multiple components that need integration
         multi_component_keywords = [
             "and", "with", "between", "across", "multiple", "several",
             "various", "different", "both", "all"
         ]
-        
+
         # Check for integration keywords with word boundary matching
         integration_count = sum(1 for keyword in integration_keywords if self._contains_word(description_lower, keyword))
         base_score += min(3, integration_count)
-        
+
         # Check for multiple components that need integration with word boundary matching
         if any(self._contains_word(description_lower, keyword) for keyword in multi_component_keywords):
             # Count mentions of different components with word boundary matching
@@ -341,7 +341,7 @@ class ComplexityAnalyzer:
 
         # Check for testing-related keywords in description
         description_lower = task.description.lower()
-        
+
         # Keywords that indicate testing requirements
         testing_keywords = [
             "test", "testing", "validate", "validation", "verify", "verification",
@@ -350,7 +350,7 @@ class ComplexityAnalyzer:
             "debug", "troubleshoot", "diagnose", "regression", "performance",
             "security", "load", "stress", "usability", "accessibility"
         ]
-        
+
         # Count testing keywords with word boundary matching
         testing_count = sum(1 for keyword in testing_keywords if self._contains_word(description_lower, keyword))
         base_score += min(3, testing_count)  # Add up to 3 points for testing requirements

@@ -275,12 +275,15 @@ async def _orchestrate_async(goal: str, budget: float | None, timeout: int, max_
 
         click.echo("\n1. Decomposing goal into tasks...")
         # Create a Task object from the goal string
+        # The decomposition engine will estimate complexity if needed
         main_task = Task(
             description=goal,
             task_type=TaskType.CUSTOM,
             task_id="main"
         )
+
         decomposition_result = decomposer.decompose(main_task)
+        click.echo(f"   Estimated complexity: {main_task.effective_complexity.overall_score:.1f}/10")
         click.echo(f"   Created {decomposition_result.total_subtasks} subtasks")
         click.echo(f"   Dependencies: {decomposition_result.task_graph.edge_count}")
 

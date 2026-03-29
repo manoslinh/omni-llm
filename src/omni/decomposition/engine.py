@@ -355,14 +355,14 @@ class TaskDecompositionEngine:
             if self._complexity_analyzer is None:
                 from .complexity_analyzer import ComplexityAnalyzer
                 self._complexity_analyzer = ComplexityAnalyzer()
-            
+
             estimated_complexity = self._complexity_analyzer.analyze_task_complexity(task)
             # Always update task with estimated complexity for accuracy
             task.complexity = estimated_complexity
             complexity = estimated_complexity
         else:
             complexity = task.complexity
-        
+
         # Check complexity threshold
         if complexity.overall_score < context.min_complexity_threshold:
             return False

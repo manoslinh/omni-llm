@@ -100,6 +100,9 @@ class ProviderMetadata:
     # Configuration
     config: dict[str, Any] = field(default_factory=dict)
 
+    # Per-model capabilities (model_id -> capability dict)
+    model_capabilities: dict[str, dict[str, Any]] = field(default_factory=dict)
+
     def __post_init__(self) -> None:
         """Validate metadata fields."""
         if not self.name:
@@ -212,9 +215,34 @@ class ProviderRegistry:
         Raises:
             ValueError: If provider is already registered
         """
-        # The provider object should have a name attribute
-        # But we use the provided provider_name for consistency
-        return self.register(provider, metadata, discover_capabilities)
+        if provider_name in self._providers:
+            raise ValueError(f"Provider '{provider_name}' is already registered")
+
+        # Store provider instance using the provided name
+        self._providers[provider_name] = provider
+
+        # Create or update metadata
+        if metadata is None:
+            metadata = ProviderMetadata(
+                name=provider_name,
+                provider_type=type(provider).__name__,
+                description=f"{provider_name} provider",
+            )
+        else:
+            # Ensure metadata name matches the provided name
+            metadata.name = provider_name
+
+        # Auto-discover capabilities if requested
+        if discover_capabilities:
+            self._discover_capabilities(provider_name, provider, metadata)
+
+        # Store metadata
+        self._metadata[provider_name] = metadata
+
+        # Update indices
+        self._update_indices(provider_name, metadata)
+
+        logger.info(f"Registered provider '{provider_name}' with {len(metadata.capabilities)} capabilities")
 
     def unregister(self, provider_name: str) -> None:
         """
@@ -330,6 +358,14 @@ class ProviderRegistry:
     def get_all_providers(self) -> list[str]:
         """Get names of all registered providers."""
         return list(self._providers.keys())
+
+    def __len__(self) -> int:
+        """Return number of registered providers."""
+        return len(self._providers)
+
+    def __contains__(self, provider_name: str) -> bool:
+        """Check if a provider is registered."""
+        return provider_name in self._providers
 
     def get_all_models(self) -> set[str]:
         """Get all model IDs supported by registered providers."""
@@ -472,6 +508,13 @@ class ProviderRegistry:
         except AttributeError:
             logger.debug(f"Provider '{provider_name}' doesn't have supports_streaming property")
 
+        # Check for function/tools calling support
+        try:
+            if provider.supports_tools:
+                metadata.capabilities.add(Capability.FUNCTION_CALLING)
+        except AttributeError:
+            logger.debug(f"Provider '{provider_name}' doesn't have supports_tools property")
+
         # Check cost per token to infer supported models
         try:
             cost_data = provider.cost_per_token
@@ -483,6 +526,39 @@ class ProviderRegistry:
                 metadata.supported_models.update(cost_data.keys())
         except AttributeError:
             logger.debug(f"Provider '{provider_name}' doesn't have cost_per_token property")
+
+        # Check for list_models method to discover supported models
+        try:
+            models = provider.list_models()
+            if models:
+                metadata.supported_models.update(models)
+        except (AttributeError, TypeError):
+            logger.debug(f"Provider '{provider_name}' doesn't have list_models method")
+
+        # Check for get_capabilities method to discover per-model capabilities
+        try:
+            models_to_check = list(metadata.supported_models) if metadata.supported_models else []
+            if not models_to_check:
+                try:
+                    models_to_check = provider.list_models() or []
+                except (AttributeError, TypeError):
+                    pass
+            for model_id in models_to_check:
+                try:
+                    caps = provider.get_capabilities(model_id)
+                    model_cap = {}
+                    # Copy all capability fields from ModelCapabilities
+                    for attr in ['supports_streaming', 'supports_tools', 'supports_vision',
+                                 'supports_audio', 'max_context_tokens', 'supports_edit_format',
+                                 'temperature_range', 'top_p_range']:
+                        if hasattr(caps, attr):
+                            model_cap[attr] = getattr(caps, attr)
+                    if model_cap:
+                        metadata.model_capabilities[model_id] = model_cap
+                except (AttributeError, TypeError):
+                    pass
+        except (AttributeError, TypeError):
+            logger.debug(f"Provider '{provider_name}' doesn't have get_capabilities method")
 
         # TODO: More sophisticated capability discovery
         # - Test function calling with a simple test

@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
+import pytest_asyncio
 
 from src.omni.git.repository import GitRepository
 from src.omni.git.worktree import (
@@ -19,7 +20,7 @@ from src.omni.git.worktree import (
 )
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def git_repo(tmp_path):
     """Create a real git repo with initial commit."""
     repo_path = tmp_path / "test-repo"
@@ -36,7 +37,7 @@ async def git_repo(tmp_path):
     return repo
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def manager(git_repo):
     """Create WorktreeManager with temp repo."""
     return WorktreeManager(repo=git_repo, max_worktrees=5)

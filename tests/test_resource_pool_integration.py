@@ -1,5 +1,12 @@
 """
 Integration tests for ResourcePool with P2-15 ResourceManager.
+
+Tests are written against the actual ResourcePool API:
+- allocate(execution_id, concurrent) -> bool  (sync)
+- release(execution_id, concurrent) -> None   (sync)
+- can_allocate(requested_concurrent) -> bool   (sync)
+- record_usage(tokens, cost) -> None           (sync)
+- agent_max_concurrent: dict (direct access)
 """
 
 import pytest
@@ -69,33 +76,27 @@ class TestResourcePoolIntegration:
 
     @pytest.fixture
     def resource_pool(self):
-        """Create a ResourcePool."""
-        return ResourcePool(resource_manager=None, max_total_concurrent=10)
+        """Create a ResourcePool with 10 max concurrent."""
+        return ResourcePool(max_total_concurrent=10)
 
-    @pytest.mark.asyncio
-    async def test_integration_workflow(self, mock_resource_manager, resource_pool):
+    def test_integration_workflow(self, mock_resource_manager, resource_pool):
         """
         Test a complete workflow showing ResourcePool integration with P2-15.
 
         Scenario:
-        1. Workflow A starts with high priority
-        2. Workflow B starts with medium priority
-        3. Workflow C tries to start with low priority (should fail initially)
+        1. Workflow A starts with 5 concurrent slots
+        2. Workflow B starts with 3 concurrent slots
+        3. Workflow C tries to start with 3 slots (should fail — only 2 available)
         4. Workflow A completes, freeing resources
         5. Workflow C can now start
         """
-
-        # Step 1: Workflow A starts (high priority)
-        # First check global capacity via ResourcePool
-        can_allocate = await resource_pool.can_allocate(concurrent=5)
+        # Step 1: Workflow A starts
+        # Check global capacity via ResourcePool
+        can_allocate = resource_pool.can_allocate(requested_concurrent=5)
         assert can_allocate is True
 
         # Allocate via ResourcePool
-        success_a = await resource_pool.allocate(
-            workflow_id="workflow-a",
-            resources={"concurrent": 5},
-            priority=9  # High priority
-        )
+        success_a = resource_pool.allocate(execution_id="workflow-a", concurrent=5)
         assert success_a is True
 
         # Create P2-15 budget for workflow A
@@ -103,50 +104,37 @@ class TestResourcePoolIntegration:
             execution_id="workflow-a",
             max_concurrent=5,
             max_tokens=10000,
-            max_cost=5.0
+            max_cost=5.0,
         )
 
-        # Step 2: Workflow B starts (medium priority)
+        # Step 2: Workflow B starts
         # Check capacity (10 total - 5 allocated = 5 available)
-        can_allocate = await resource_pool.can_allocate(concurrent=3)
+        can_allocate = resource_pool.can_allocate(requested_concurrent=3)
         assert can_allocate is True
 
-        success_b = await resource_pool.allocate(
-            workflow_id="workflow-b",
-            resources={"concurrent": 3},
-            priority=5  # Medium priority
-        )
+        success_b = resource_pool.allocate(execution_id="workflow-b", concurrent=3)
         assert success_b is True
 
         mock_resource_manager.create_budget(
             execution_id="workflow-b",
             max_concurrent=3,
             max_tokens=5000,
-            max_cost=2.5
+            max_cost=2.5,
         )
 
         # Verify ResourcePool state
         assert resource_pool.allocated_concurrent == 8
         assert resource_pool.available_concurrent == 2
 
-        # Step 3: Workflow C tries to start (low priority, needs 3 slots)
-        # Only 2 available, so should fail
-        can_allocate = await resource_pool.can_allocate(concurrent=3)
+        # Step 3: Workflow C tries to start (needs 3 slots, only 2 available)
+        can_allocate = resource_pool.can_allocate(requested_concurrent=3)
         assert can_allocate is False
 
-        success_c = await resource_pool.allocate(
-            workflow_id="workflow-c",
-            resources={"concurrent": 3},
-            priority=1  # Low priority
-        )
+        success_c = resource_pool.allocate(execution_id="workflow-c", concurrent=3)
         assert success_c is False
 
-        # Step 4: Workflow A completes
-        # Deallocate resources via ResourcePool
-        await resource_pool.deallocate(
-            workflow_id="workflow-a",
-            resources={"concurrent": 5}
-        )
+        # Step 4: Workflow A completes — release resources
+        resource_pool.release(execution_id="workflow-a", concurrent=5)
 
         # Remove P2-15 budget
         mock_resource_manager.remove_budget("workflow-a")
@@ -156,21 +144,17 @@ class TestResourcePoolIntegration:
         assert resource_pool.available_concurrent == 7
 
         # Step 5: Workflow C can now start
-        can_allocate = await resource_pool.can_allocate(concurrent=3)
+        can_allocate = resource_pool.can_allocate(requested_concurrent=3)
         assert can_allocate is True
 
-        success_c = await resource_pool.allocate(
-            workflow_id="workflow-c",
-            resources={"concurrent": 3},
-            priority=1
-        )
+        success_c = resource_pool.allocate(execution_id="workflow-c", concurrent=3)
         assert success_c is True
 
         mock_resource_manager.create_budget(
             execution_id="workflow-c",
             max_concurrent=3,
             max_tokens=3000,
-            max_cost=1.5
+            max_cost=1.5,
         )
 
         # Final verification
@@ -188,139 +172,129 @@ class TestResourcePoolIntegration:
         assert "workflow-c" in status["per_execution"]
         assert "workflow-a" not in status["per_execution"]  # Removed
 
-    @pytest.mark.asyncio
-    async def test_priority_preemption_scenario(self, resource_pool):
+    def test_priority_preemption_scenario(self, resource_pool):
         """
         Test priority-based preemption scenario.
 
         Scenario:
-        1. Low priority workflow gets resources
-        2. High priority workflow needs resources but pool is full
-        3. ResourcePool should enable stealing from low priority workflow
+        1. Two workflows fill the pool
+        2. ResourcePool is full — new allocation fails
+        3. Release one workflow, new allocation succeeds
+
+        NOTE: steal_slot() does not exist on current ResourcePool.
+        Preemption logic lives in GlobalResourceManager._try_preempt().
+        This test covers basic capacity management; preemption is tested
+        in test_global_resource_manager.py (if it exists).
         """
-        # Fill the pool with low priority workflows
-        success1 = await resource_pool.allocate(
-            workflow_id="wf-low-1",
-            resources={"concurrent": 5},
-            priority=1  # Low priority
-        )
+        # Fill the pool with two workflows
+        success1 = resource_pool.allocate(execution_id="wf-low-1", concurrent=5)
         assert success1 is True
 
-        success2 = await resource_pool.allocate(
-            workflow_id="wf-low-2",
-            resources={"concurrent": 5},
-            priority=2  # Low priority
-        )
+        success2 = resource_pool.allocate(execution_id="wf-low-2", concurrent=5)
         assert success2 is True
 
         # Pool is now full (10/10)
         assert resource_pool.available_concurrent == 0
+        assert resource_pool.allocated_concurrent == 10
 
-        # High priority workflow needs resources
-        # In a real implementation, this would trigger preemption
-        # For now, we test the steal_slot interface
-        success, message = await resource_pool.steal_slot(
-            from_workflow_id="wf-low-1",  # Take from low priority
-            to_workflow_id="wf-high"      # Give to high priority
-        )
+        # New allocation should fail
+        success3 = resource_pool.allocate(execution_id="wf-high", concurrent=1)
+        assert success3 is False
 
-        # Current implementation simulates successful steal
-        assert success is True
-        assert "stole 1 slot" in message
-        assert "wf-low-1" in message
-        assert "wf-high" in message
+        # Release one workflow
+        resource_pool.release(execution_id="wf-low-1", concurrent=5)
 
-    @pytest.mark.asyncio
-    async def test_resource_usage_tracking(self, resource_pool):
+        # Now allocation succeeds
+        success3 = resource_pool.allocate(execution_id="wf-high", concurrent=5)
+        assert success3 is True
+        assert resource_pool.allocated_concurrent == 10
+
+    def test_resource_usage_tracking(self, resource_pool):
         """Test integration of resource usage tracking."""
         # Set up rate limits
         resource_pool.max_total_tokens_per_minute = 50000
         resource_pool.max_total_cost_per_hour = 20.0
 
         # Allocate for a workflow
-        await resource_pool.allocate(
-            workflow_id="wf-usage-test",
-            resources={"concurrent": 3},
-            priority=5
-        )
+        resource_pool.allocate(execution_id="wf-usage-test", concurrent=3)
 
         # Simulate task execution and record usage
-        # Task 1: 1000 tokens, $0.10
-        await resource_pool.record_usage(tokens=1000, cost=0.10)
-
-        # Task 2: 2500 tokens, $0.25
-        await resource_pool.record_usage(tokens=2500, cost=0.25)
-
-        # Task 3: 1500 tokens, $0.15
-        await resource_pool.record_usage(tokens=1500, cost=0.15)
+        resource_pool.record_usage(tokens=1000, cost=0.10)
+        resource_pool.record_usage(tokens=2500, cost=0.25)
+        resource_pool.record_usage(tokens=1500, cost=0.15)
 
         # Verify usage tracking
         assert resource_pool.tokens_used_this_minute == 5000
         assert resource_pool.cost_used_this_hour == 0.5
 
         # Check available capacity
-        capacity = resource_pool.get_available_capacity()
-        assert capacity["concurrent"] == 7  # 10 total - 3 allocated
-        assert capacity["tokens_per_minute"] == 45000  # 50000 - 5000
-        assert capacity["cost_per_hour"] == 19.5  # 20.0 - 0.5
+        assert resource_pool.available_concurrent == 7  # 10 total - 3 allocated
 
-        # Deallocate
-        await resource_pool.deallocate(
-            workflow_id="wf-usage-test",
-            resources={"concurrent": 3}
-        )
+        # Check utilization dict
+        utilization = resource_pool.utilization
+        assert utilization["allocated"] == 3
+        assert utilization["available"] == 7
+        assert utilization["total_concurrent"] == 10
 
-        # Capacity should be restored for concurrent slots
-        capacity = resource_pool.get_available_capacity()
-        assert capacity["concurrent"] == 10
+        # Release
+        resource_pool.release(execution_id="wf-usage-test", concurrent=3)
 
-    @pytest.mark.asyncio
-    async def test_agent_capacity_integration(self, resource_pool):
-        """Test agent capacity limits integration."""
-        # Set up agent capacities
-        await resource_pool.set_agent_capacity("coder", 3)
-        await resource_pool.set_agent_capacity("reviewer", 2)
-        await resource_pool.set_agent_capacity("tester", 1)
+        # Capacity should be restored
+        assert resource_pool.available_concurrent == 10
 
-        # Allocate workflows that use different agents
-        # Workflow 1: Uses coder agent (3 slots)
-        success1 = await resource_pool.allocate(
-            workflow_id="wf-coder-heavy",
-            resources={"concurrent": 3},
-            priority=5
-        )
+    def test_agent_capacity_integration(self, resource_pool):
+        """Test agent capacity limits integration.
+
+        NOTE: set_agent_capacity() / get_agent_capacity() do not exist on
+        current ResourcePool. Agent capacity is stored directly in the
+        agent_max_concurrent dict.
+        """
+        # Set agent capacities via dict (actual API)
+        resource_pool.agent_max_concurrent["coder"] = 3
+        resource_pool.agent_max_concurrent["reviewer"] = 2
+        resource_pool.agent_max_concurrent["tester"] = 1
+
+        # Allocate workflows using different agent slots
+        success1 = resource_pool.allocate(execution_id="wf-coder-heavy", concurrent=3)
         assert success1 is True
 
-        # Workflow 2: Uses reviewer agent (2 slots)
-        success2 = await resource_pool.allocate(
-            workflow_id="wf-review-heavy",
-            resources={"concurrent": 2},
-            priority=5
-        )
+        success2 = resource_pool.allocate(execution_id="wf-review-heavy", concurrent=2)
         assert success2 is True
 
-        # Workflow 3: Uses tester agent (1 slot)
-        success3 = await resource_pool.allocate(
-            workflow_id="wf-test-heavy",
-            resources={"concurrent": 1},
-            priority=5
-        )
+        success3 = resource_pool.allocate(execution_id="wf-test-heavy", concurrent=1)
         assert success3 is True
 
         # Total allocated: 6 slots, pool has 10 total
         assert resource_pool.allocated_concurrent == 6
         assert resource_pool.available_concurrent == 4
 
-        # Try to allocate another workflow that needs coder agent
-        # Coder agent already at capacity (3/3), but pool has capacity
-        # This tests that agent-level limits are tracked separately
-        # (Implementation would need to track per-agent usage)
+        # Verify agent capacity settings (direct dict access)
+        assert resource_pool.agent_max_concurrent["coder"] == 3
+        assert resource_pool.agent_max_concurrent["reviewer"] == 2
+        assert resource_pool.agent_max_concurrent["tester"] == 1
 
-        # For now, just verify the agent capacity settings
-        coder_cap = await resource_pool.get_agent_capacity("coder")
-        reviewer_cap = await resource_pool.get_agent_capacity("reviewer")
-        tester_cap = await resource_pool.get_agent_capacity("tester")
+    def test_active_budgets_tracking(self, resource_pool):
+        """Verify ResourcePool tracks active budgets correctly."""
+        resource_pool.allocate(execution_id="exec-1", concurrent=4)
+        resource_pool.allocate(execution_id="exec-2", concurrent=3)
 
-        assert coder_cap == 3
-        assert reviewer_cap == 2
-        assert tester_cap == 1
+        assert "exec-1" in resource_pool.active_budgets
+        assert "exec-2" in resource_pool.active_budgets
+        assert resource_pool.active_budgets["exec-1"].max_concurrent == 4
+        assert resource_pool.active_budgets["exec-2"].max_concurrent == 3
+
+        # Release exec-1
+        resource_pool.release(execution_id="exec-1", concurrent=4)
+        assert "exec-1" not in resource_pool.active_budgets
+        assert "exec-2" in resource_pool.active_budgets
+
+    def test_utilization_property(self, resource_pool):
+        """Test utilization reporting."""
+        resource_pool.allocate(execution_id="exec-1", concurrent=6)
+
+        util = resource_pool.utilization
+        assert util["total_concurrent"] == 10
+        assert util["allocated"] == 6
+        assert util["available"] == 4
+        assert util["utilization_pct"] == 60.0
+        assert util["active_workflows"] == 1

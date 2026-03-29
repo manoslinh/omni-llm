@@ -118,6 +118,17 @@ class WorkloadTracker:
             return 0.0
         return len(recent) / window_seconds
 
+    def get_history_size(self) -> int:
+        """Get the number of execution records in history."""
+        return len(self._history)
+
+    def clear(self) -> None:
+        """Clear all tracking data."""
+        self._history.clear()
+        self._agent_durations.clear()
+        self._agent_success_rates.clear()
+        self._type_durations.clear()
+
 
 class DemandForecaster:
     """
@@ -279,3 +290,28 @@ class BottleneckDetector:
             report["suggestions"].append("Check for agent failures or API rate limiting")
 
         return report
+
+    def get_queue_trend(self) -> str:
+        """
+        Analyze queue depth trend.
+
+        Returns:
+            "growing" if queue depth is consistently increasing
+            "shrinking" if queue depth is consistently decreasing
+            "stable" otherwise
+        """
+        if len(self._queue_depths) < 3:
+            return "stable"
+
+        # Get last 3 samples
+        recent = list(self._queue_depths)[-3:]
+
+        # Check if strictly increasing
+        if all(recent[i] < recent[i + 1] for i in range(len(recent) - 1)):
+            return "growing"
+
+        # Check if strictly decreasing
+        if all(recent[i] > recent[i + 1] for i in range(len(recent) - 1)):
+            return "shrinking"
+
+        return "stable"

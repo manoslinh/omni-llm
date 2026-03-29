@@ -33,7 +33,7 @@ class WorkflowEngine:
     5. Validate template structure
     """
 
-    def __init__(self, coordination_engine=None):
+    def __init__(self, coordination_engine: Any = None) -> None:
         """
         Initialize the workflow engine.
 
@@ -100,7 +100,7 @@ class WorkflowEngine:
             try:
                 task_type = TaskType.from_string(task_type_str)
             except ValueError as e:
-                raise ValueError(f"Invalid task type '{task_type_str}': {e}")
+                raise ValueError(f"Invalid task type '{task_type_str}': {e}") from e
 
             step = WorkflowStep(
                 name=step_data["name"],
@@ -273,7 +273,7 @@ class WorkflowEngine:
         a security risk if condition strings come from untrusted sources.
         The current implementation restricts the namespace to only the context
         dictionary, but eval() can still execute arbitrary Python code.
-        
+
         PHASE 3 MITIGATION PLAN: Replace eval() with ast.literal_eval() for
         simple expressions or implement a restricted expression evaluator that
         only supports safe operations (comparisons, logical operators, arithmetic).
@@ -356,7 +356,7 @@ class WorkflowEngine:
             )
             return False
 
-    def _get_coordination_engine(self):
+    def _get_coordination_engine(self) -> Any:
         """Get the coordination engine, importing if necessary."""
         if self.coordination_engine is not None:
             return self.coordination_engine

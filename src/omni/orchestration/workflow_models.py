@@ -184,7 +184,7 @@ class WorkflowTemplate:
             errors.append(f"Invalid version format: {self.version}. Expected X.Y.Z")
 
         # Validate variables
-        for var_name, var_def in self.variables.items():
+        for var_name, _var_def in self.variables.items():
             if not var_name.strip():
                 errors.append("Variable name cannot be empty")
 
@@ -242,8 +242,8 @@ class WorkflowTemplate:
             that can execute in parallel (same dependency depth).
         """
         # Build adjacency list and reverse adjacency list
-        adj = {step.name: set(step.depends_on) for step in self.steps}
-        reverse_adj = {step.name: set() for step in self.steps}
+        _adj: dict[str, set[str]] = {step.name: set(step.depends_on) for step in self.steps}
+        reverse_adj: dict[str, set[str]] = {step.name: set() for step in self.steps}
 
         for step in self.steps:
             for dep in step.depends_on:

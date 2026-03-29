@@ -14,12 +14,6 @@ import logging
 from unittest.mock import Mock
 
 from omni.execution.adjuster import ScheduleAdjuster
-from src.omni.scheduling.policies import (
-    BalancedPolicy,
-    DeadlinePolicy,
-    FIFOPolicy,
-    PriorityPolicy,
-)
 from omni.scheduling.predictive import (
     BottleneckDetector,
     DemandForecaster,
@@ -27,6 +21,12 @@ from omni.scheduling.predictive import (
 )
 from omni.scheduling.resource_pool import GlobalResourceManager, ResourcePool
 from omni.task.models import Task
+from src.omni.scheduling.policies import (
+    BalancedPolicy,
+    DeadlinePolicy,
+    FIFOPolicy,
+    PriorityPolicy,
+)
 
 
 def demo_scheduling_policies():

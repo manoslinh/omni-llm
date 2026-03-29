@@ -5,8 +5,8 @@ Tests failure recovery, deadline pressure handling, and capacity bursting.
 """
 
 import asyncio
-from unittest.mock import AsyncMock
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -36,33 +36,33 @@ class MockTaskMatcher:
 
 class MockResourcePool:
     """Mock implementation of ResourcePoolProtocol for testing."""
-    
+
     def __init__(self, max_concurrent: int = 10):
         self.max_concurrent = max_concurrent
         self.allocated = 0
         self.allocations = {}
-    
+
     def can_allocate(self, requested_concurrent: int = 1) -> bool:
         return self.allocated + requested_concurrent <= self.max_concurrent
-    
+
     def allocate(self, execution_id: str, concurrent: int = 1) -> bool:
         if not self.can_allocate(concurrent):
             return False
         self.allocated += concurrent
         self.allocations[execution_id] = self.allocations.get(execution_id, 0) + concurrent
         return True
-    
+
     def release(self, execution_id: str, concurrent: int = 1) -> None:
         if execution_id in self.allocations:
             self.allocated = max(0, self.allocated - concurrent)
             self.allocations[execution_id] = max(0, self.allocations[execution_id] - concurrent)
             if self.allocations[execution_id] == 0:
                 del self.allocations[execution_id]
-    
+
     @property
     def available_concurrent(self) -> int:
         return max(0, self.max_concurrent - self.allocated)
-    
+
     @property
     def utilization(self) -> dict[str, Any]:
         return {
@@ -75,18 +75,18 @@ class MockResourcePool:
 
 class MockWorkloadTracker:
     """Mock implementation of WorkloadTrackerProtocol for testing."""
-    
+
     def __init__(self):
         self.agent_durations = {}
         self.agent_success_rates = {}
         self.throughput = 1.0
-    
+
     def get_agent_avg_duration(self, agent_id: str) -> float | None:
         return self.agent_durations.get(agent_id)
-    
+
     def get_agent_success_rate(self, agent_id: str) -> float | None:
         return self.agent_success_rates.get(agent_id)
-    
+
     def get_throughput(self, window_seconds: float = 300) -> float:
         return self.throughput
 

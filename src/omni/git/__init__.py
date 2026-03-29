@@ -7,13 +7,13 @@ Based on patterns from Aider's repo.py.
 
 from .repository import GitRepository
 from .worktree import (
-    WorktreeManager,
+    WorktreeCreationError,
     WorktreeEnv,
-    WorktreeInfo,
     WorktreeError,
     WorktreeExistsError,
+    WorktreeInfo,
+    WorktreeManager,
     WorktreeNotFoundError,
-    WorktreeCreationError,
 )
 
 __all__ = [

@@ -13,7 +13,6 @@ to work in parallel on complex tasks, including:
 import asyncio
 import sys
 from pathlib import Path
-from typing import Dict, List
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -38,10 +37,10 @@ class DemoObserver(CoordinationObserver):
         print(f"   📋 Workflow plan created: {plan.plan_id}")
         print(f"      Steps: {plan.total_steps}, Parallel: {plan.parallel_steps}")
 
-    def on_step_started(self, step_id: str, task_ids: List[str]) -> None:
+    def on_step_started(self, step_id: str, task_ids: list[str]) -> None:
         print(f"   ▶️  Step '{step_id}' started with {len(task_ids)} tasks")
 
-    def on_step_completed(self, step_id: str, results: Dict[str, str]) -> None:
+    def on_step_completed(self, step_id: str, results: dict[str, str]) -> None:
         print(f"   ✅ Step '{step_id}' completed: {len(results)} results")
 
     def on_escalation(self, task_id: str, from_agent: str, to_agent: str, reason: str) -> None:
@@ -49,7 +48,7 @@ class DemoObserver(CoordinationObserver):
         print(f"      Reason: {reason}")
 
 
-def create_agent_profiles() -> List[AgentProfile]:
+def create_agent_profiles() -> list[AgentProfile]:
     """Create example agent profiles with different capabilities."""
     return [
         AgentProfile(
@@ -113,7 +112,7 @@ def create_complex_task() -> str:
     """Create a complex task description for demonstration."""
     return """
     Refactor the entire e-commerce application to improve performance and maintainability:
-    
+
     1. Analyze current architecture and identify bottlenecks
     2. Design improved microservices architecture
     3. Refactor authentication service to use OAuth2
@@ -124,7 +123,7 @@ def create_complex_task() -> str:
     8. Update documentation for new architecture
     9. Create deployment scripts for new services
     10. Perform security audit of all changes
-    
+
     The application currently has:
     - 50+ Python files
     - 3 main services (auth, products, orders)
@@ -156,7 +155,7 @@ async def demonstrate_task_decomposition():
 
     # Show some subtasks
     print("\nSample subtasks:")
-    for i, (task_id, task) in enumerate(list(task_graph.tasks.items())[:3], 1):
+    for i, (_task_id, task) in enumerate(list(task_graph.tasks.items())[:3], 1):
         print(f"   {i}. {task.description[:60]}...")
         print(f"      Type: {task.task_type.value}")
         print(f"      Dependencies: {len(task.dependencies)}")
@@ -182,7 +181,7 @@ async def demonstrate_coordination(task_graph: TaskGraph):
     result = await coordinator.coordinate(task_graph, plan_id="demo-parallel-001")
 
     # Show coordination results
-    print(f"\n✅ Coordination complete!")
+    print("\n✅ Coordination complete!")
     print(f"   Agents used: {result.total_agents_used}")
     print(f"   Estimated cost: ${result.estimated_total_cost:.4f}")
     print(f"   Estimated time: {result.estimated_total_time:.1f}s")
@@ -219,14 +218,14 @@ async def demonstrate_parallel_execution_plan(result):
     sequential_tasks = plan.total_steps - total_parallel_tasks
     parallelization_rate = (total_parallel_tasks / plan.total_steps) * 100
 
-    print(f"\n📊 Parallelization analysis:")
+    print("\n📊 Parallelization analysis:")
     print(f"   Total tasks: {plan.total_steps}")
     print(f"   Parallel tasks: {total_parallel_tasks}")
     print(f"   Sequential tasks: {sequential_tasks}")
     print(f"   Parallelization rate: {parallelization_rate:.1f}%")
 
     # Show critical path
-    print(f"\n⏱️  Critical path (longest sequential chain):")
+    print("\n⏱️  Critical path (longest sequential chain):")
     critical_path = plan.get_critical_path()
     print(f"   Length: {len(critical_path)} steps")
     print(f"   Steps: {' → '.join(critical_path)}")
@@ -267,8 +266,8 @@ async def demonstrate_dynamic_escalation():
     )
 
     if escalation:
-        print(f"\n✅ Task escalated successfully!")
-        print(f"   From: intern")
+        print("\n✅ Task escalated successfully!")
+        print("   From: intern")
         print(f"   To: {escalation.agent_profile.display_name}")
         print(f"   Reason: {escalation.reasoning}")
         print(f"   Model: {escalation.agent_profile.model_id}")
@@ -321,7 +320,7 @@ async def demonstrate_resource_pool():
                 print(f"   {task_name} → ❌ no agents available")
 
     # Show pool status
-    print(f"\n📊 Resource pool status:")
+    print("\n📊 Resource pool status:")
     print(f"   Total agents: {pool.total_agents}")
     print(f"   Available agents: {pool.available_agents}")
     print(f"   Busy agents: {pool.busy_agents}")
@@ -376,7 +375,7 @@ async def demonstrate_cost_tracking():
         print(f"   {task_id}: {agent_id} (${cost:.6f})")
 
     # Get cost breakdown
-    print(f"\n📊 Cost breakdown:")
+    print("\n📊 Cost breakdown:")
     print(f"   Total cost: ${total_cost:.6f}")
     print(f"   Budget: ${tracker.budget:.6f}")
     print(f"   Remaining: ${tracker.budget - total_cost:.6f}")
@@ -387,7 +386,7 @@ async def demonstrate_cost_tracking():
         print("   ✅ Within budget")
 
     # Show per-agent costs
-    print(f"\nPer-agent costs:")
+    print("\nPer-agent costs:")
     for agent_id in agents:
         agent_cost = tracker.get_agent_cost(agent_id)
         if agent_cost > 0:

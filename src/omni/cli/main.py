@@ -14,6 +14,7 @@ from ..models.litellm_provider import LiteLLMProvider
 from ..models.mock_provider import MockProvider
 from ..models.provider import Message, MessageRole, ModelProvider
 from ..observability.cli import register_execute_command
+from ..task.models import Task, TaskType
 
 # Import orchestration modules for new commands
 try:
@@ -24,10 +25,10 @@ try:
     ORCHESTRATION_AVAILABLE = True
 except ImportError:
     ORCHESTRATION_AVAILABLE = False
-    WorkflowEngine = None
-    ModelRouter = None
-    CoordinationEngine = None
-    TaskDecompositionEngine = None
+    WorkflowEngine = None  # type: ignore[assignment, misc]
+    ModelRouter = None  # type: ignore[assignment, misc]
+    CoordinationEngine = None  # type: ignore[assignment, misc]
+    TaskDecompositionEngine = None  # type: ignore[assignment, misc]
 
 # Configure logging
 logging.basicConfig(
@@ -273,20 +274,23 @@ async def _orchestrate_async(goal: str, budget: float | None, timeout: int, max_
         decomposer = TaskDecompositionEngine()
 
         click.echo("\n1. Decomposing goal into tasks...")
-        task_graph = decomposer.decompose(goal)
-        click.echo(f"   Created {task_graph.size} subtasks")
-        click.echo(f"   Dependencies: {task_graph.dependency_count}")
+        # Create a Task object from the goal string
+        main_task = Task(
+            description=goal,
+            task_type=TaskType.CUSTOM,
+            task_id="main"
+        )
+        decomposition_result = decomposer.decompose(main_task)
+        click.echo(f"   Created {decomposition_result.total_subtasks} subtasks")
+        click.echo(f"   Dependencies: {decomposition_result.task_graph.edge_count}")
 
         click.echo("\n2. Coordinating agents...")
-        result = await coordinator.coordinate(
-            task_graph,
-            budget=budget,
-            max_agents=max_agents,
+        result = coordinator.coordinate(
+            decomposition_result.task_graph,
         )
 
         click.echo(f"   Agents assigned: {result.total_agents_used}")
         click.echo(f"   Estimated cost: ${result.estimated_total_cost:.4f}")
-        click.echo(f"   Estimated time: {result.estimated_total_time:.1f}s")
 
         if dry_run:
             click.echo("\n✅ Dry run complete. Execution plan ready.")
@@ -303,8 +307,6 @@ async def _orchestrate_async(goal: str, budget: float | None, timeout: int, max_
         click.echo(f"\n📋 Execution Plan ({len(waves)} waves):")
         for i, wave in enumerate(waves, 1):
             click.echo(f"   Wave {i}: {len(wave)} parallel steps")
-
-        await coordinator.close()
 
     except Exception as e:
         click.echo(f"❌ Error: {e}", err=True)

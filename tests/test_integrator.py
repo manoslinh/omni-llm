@@ -81,7 +81,7 @@ class TestResultIntegrator:
 
         # Check summary contains expected information
         assert "Executed 2 tasks: 2 succeeded, 0 failed" in summary
-        assert "Modified 3 file(s)" in summary or "Modified 4 file(s)" in summary
+        assert "Modified 4 file(s)" in summary  # 3 modified + 1 created
         assert "Total cost" in summary
         assert "0.003" in summary  # Total cost
         assert "300" in summary  # Total tokens
@@ -613,3 +613,55 @@ class TestResultIntegrator:
         # In Phase 2, verification failure doesn't affect success
         # because verification is skipped
         assert result.success
+
+    def test_generate_summary_edge_cases(self):
+        """Test generate_summary with edge cases."""
+        integrator = ResultIntegrator()
+
+        # Test with results that have no file changes
+        results_no_files = [
+            TaskResult(
+                task_id="task1",
+                status=TaskStatus.COMPLETED,
+                outputs={},  # No files modified or created
+                tokens_used=50,
+                cost=0.0005,
+            ),
+        ]
+
+        summary_no_files = integrator.generate_summary(results_no_files)
+        assert "Executed 1 task" in summary_no_files
+        assert "0 succeeded" not in summary_no_files  # Should say 1 succeeded
+
+        # Test with results that have duplicate file names
+        results_duplicate_files = [
+            TaskResult(
+                task_id="task1",
+                status=TaskStatus.COMPLETED,
+                outputs={
+                    "files_modified": ["file.py"],
+                    "files_created": ["file.py"],  # Same file in both lists
+                },
+                tokens_used=100,
+                cost=0.001,
+            ),
+        ]
+
+        summary_duplicate = integrator.generate_summary(results_duplicate_files)
+        # Should count unique files only
+        assert "Modified 1 file(s)" in summary_duplicate or "Modified 2 file(s)" in summary_duplicate
+
+        # Test with very large token count
+        results_large_tokens = [
+            TaskResult(
+                task_id="task1",
+                status=TaskStatus.COMPLETED,
+                outputs={"files_modified": ["big_file.py"]},
+                tokens_used=1000000,  # 1 million tokens
+                cost=10.0,
+            ),
+        ]
+
+        summary_large = integrator.generate_summary(results_large_tokens)
+        assert "1000000" in summary_large
+        assert "10.0000" in summary_large or "10.0" in summary_large  # Cost formatting

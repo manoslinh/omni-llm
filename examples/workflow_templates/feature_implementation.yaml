@@ -1,0 +1,74 @@
+# Feature Implementation Workflow Template
+# Complete workflow for implementing a new feature
+
+name: "Feature Implementation Workflow"
+description: "End-to-end workflow for implementing a new feature with tests and docs"
+version: "1.1.0"
+
+variables:
+  feature_name:
+    description: "Name of the feature to implement"
+    required: true
+    type: "string"
+  module_path:
+    description: "Path to the module where feature should be implemented"
+    required: true
+    type: "string"
+  test_coverage:
+    description: "Minimum test coverage percentage"
+    default: 80
+    type: "number"
+
+metadata:
+  category: "feature-development"
+  estimated_time: "1-2 hours"
+  complexity: "high"
+
+steps:
+  - name: "design_analysis"
+    task_type: "analysis"
+    description: "Analyze requirements and design approach for feature '{feature_name}'"
+    files: ["{module_path}"]
+    model_override: "thinker"  # Use thinker for complex analysis
+
+  - name: "implement_core"
+    task_type: "code_generation"
+    description: "Implement core functionality for '{feature_name}' in {module_path}"
+    files: ["{module_path}"]
+    depends_on: ["design_analysis"]
+    model_override: "coder"
+
+  - name: "implement_tests"
+    task_type: "testing"
+    description: "Implement unit tests for '{feature_name}' with {test_coverage}% coverage"
+    files: ["{module_path}"]
+    depends_on: ["implement_core"]
+    model_override: "coder"
+
+  - name: "code_review"
+    task_type: "code_review"
+    description: "Review implementation and tests for '{feature_name}'"
+    files: ["{module_path}"]
+    depends_on: ["implement_core", "implement_tests"]
+    model_override: "reader"  # Higher tier for feature review
+
+  - name: "integration_test"
+    task_type: "testing"
+    description: "Run integration tests for '{feature_name}'"
+    files: ["{module_path}"]
+    depends_on: ["code_review"]
+    condition: "{run_integration_tests}"
+
+  - name: "document_feature"
+    task_type: "documentation"
+    description: "Document the '{feature_name}' feature including usage examples"
+    files: ["{module_path}"]
+    depends_on: ["implement_core"]
+    model_override: "intern"  # Simple documentation task
+
+  - name: "final_validation"
+    task_type: "analysis"
+    description: "Final validation of complete '{feature_name}' implementation"
+    files: ["{module_path}"]
+    depends_on: ["code_review", "document_feature", "integration_test"]
+    model_override: "thinker"

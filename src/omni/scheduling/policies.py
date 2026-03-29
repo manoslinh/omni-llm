@@ -1,12 +1,13 @@
 """
-Pluggable scheduling policies for advanced task scheduling.
+Scheduling policies for intelligent task ordering.
 
-This module provides 6 scheduling policies:
-- FIFO: First In, First Out (P2-11 default behavior)
+Provides pluggable scheduling policies that determine which ready task
+should run next. Each policy implements a different scheduling strategy:
+- FIFO: First In, First Out (backward compatible with P2-11)
 - Priority: Highest priority tasks first
 - Deadline: Earliest deadline first
-- CostAware: Minimize total cost within constraints
-- Fair: Fair distribution across workflows
+- CostAware: Cost/budget optimization
+- Fair: Fair resource distribution across workflows
 - Balanced: Weighted combination of all factors
 """
 
@@ -84,10 +85,9 @@ class FIFOPolicy(SchedulingPolicyBase):
         return "fifo"
 
     def rank_tasks(self, context: SchedulingContext) -> list[SchedulingScore]:
-        # Give first task highest score, last task lowest score
-        n = len(context.ready_tasks)
+        # Higher score for earlier tasks (FIFO)
         return [
-            SchedulingScore(task_id=t.task_id, composite_score=float(n - i - 1))
+            SchedulingScore(task_id=t.task_id, composite_score=float(len(context.ready_tasks) - i - 1))
             for i, t in enumerate(context.ready_tasks)
         ]
 
@@ -102,19 +102,9 @@ class PriorityPolicy(SchedulingPolicyBase):
     def rank_tasks(self, context: SchedulingContext) -> list[SchedulingScore]:
         scores = []
         for task in context.ready_tasks:
-            # Handle integer priorities (0-100 scale, higher = more important)
-            # Map integer priorities to scores: 0-25=low, 26-50=medium, 51-75=high, 76-100=critical
-            priority = task.priority
-            if isinstance(priority, int):
-                # Normalize to 0-100 scale
-                priority = max(0, min(100, priority))
-                # Map to score: higher priority = higher score
-                p_score = float(priority)
-            else:
-                # Fallback for string priorities (backward compatibility)
-                priority_map = {"critical": 100, "high": 75, "medium": 50, "low": 25}  # type: ignore[unreachable]
-                p_score = priority_map.get(str(priority).lower(), 50)
-
+            # Normalize priority: higher number = higher priority
+            # Task.priority is int, default 0
+            p_score = float(task.priority) if task.priority > 0 else 0.0
             scores.append(SchedulingScore(
                 task_id=task.task_id,
                 composite_score=p_score,
@@ -167,24 +157,31 @@ class CostAwarePolicy(SchedulingPolicyBase):
         budget_remaining = context.cost_budget_remaining
         scores = []
 
-        for task in context.ready_tasks:
-            # Get estimated cost from task if available
-            if hasattr(task, 'estimated_cost') and task.estimated_cost:
-                est_cost = getattr(task.estimated_cost, 'total_cost_usd', 0.01)
-            else:
-                est_cost = 0.01  # Default small cost
+        for i, task in enumerate(context.ready_tasks):
+            # Get estimated cost from task.estimated_cost or task.context
+            est_cost = 0.01  # Default estimate
+            if hasattr(task, 'estimated_cost') and hasattr(task.estimated_cost, 'total_cost_usd'):
+                est_cost = task.estimated_cost.total_cost_usd
+            elif hasattr(task, 'context') and hasattr(task.context, 'estimated_cost_usd'):
+                est_cost = task.context.estimated_cost_usd
 
             if budget_remaining is not None and budget_remaining > 0:
                 # Cost efficiency: tasks that use less of remaining budget rank higher
-                # Score ranges from 100 (free task) to 0 (task uses entire budget)
                 cost_ratio = est_cost / budget_remaining
+                # Score from 100 (best) to 0 (worst)
+                # When cost_ratio = 0 (task is free), score = 100
+                # When cost_ratio = 1 (task uses all budget), score = 0
+                # When cost_ratio > 1 (task exceeds budget), score = 0
                 cost_score = max(0, 100 - (cost_ratio * 100))
             else:
                 cost_score = 50  # Neutral
 
+            # Add small FIFO component as tiebreaker
+            fifo_component = 10 - i
+
             scores.append(SchedulingScore(
                 task_id=task.task_id,
-                composite_score=cost_score,
+                composite_score=cost_score + fifo_component,
                 cost_score=cost_score,
             ))
         scores.sort(key=lambda s: -s.composite_score)
@@ -259,7 +256,8 @@ class BalancedPolicy(SchedulingPolicyBase):
         agent_scores: dict[str, float] = {}
         for task in context.ready_tasks:
             # Check if a preferred agent is available
-            preferred = getattr(task, 'preferred_agent', None)
+            # Task doesn't have preferred_agent field, so we'll check context
+            preferred = task.context.get("preferred_agent") if hasattr(task, 'context') else None
             if preferred and context.agent_availability.get(preferred, False):
                 agent_scores[task.task_id] = 100.0
             elif any(context.agent_availability.values()):
@@ -286,28 +284,19 @@ class BalancedPolicy(SchedulingPolicyBase):
         fairness_base = max(0, 100 - (my_running * 20))
 
         scores = []
-        for task in context.ready_tasks:
-            # Handle integer priorities (0-100 scale, higher = more important)
-            priority = task.priority
-            if isinstance(priority, int):
-                # Normalize to 0-100 scale
-                priority = max(0, min(100, priority))
-                p = float(priority)
-            else:
-                # Fallback for string priorities (backward compatibility)
-                priority_map = {"critical": 100, "high": 75, "medium": 50, "low": 25}  # type: ignore[unreachable]
-                p = priority_map.get(str(priority).lower(), 50)
+        for i, task in enumerate(context.ready_tasks):
+            # Priority score: normalize task.priority (int) to 0-100 scale
+            p = float(task.priority) * 10 if task.priority > 0 else 0.0
+            p = min(p, 100.0)  # Cap at 100
+
             d = deadline_scores.get(task.task_id, 0.0)
             a = agent_scores.get(task.task_id, 0.0)
 
-            # Get estimated cost from task if available
-            if hasattr(task, 'estimated_cost') and task.estimated_cost:
-                est_cost = getattr(task.estimated_cost, 'total_cost_usd', 0.01)
-            else:
-                est_cost = 0.01  # Default small cost
+            # Cost score: default estimate
+            est_cost = 0.01  # Default
             budget = context.cost_budget_remaining
             if budget and budget > 0:
-                c = max(0, 100 - (est_cost / budget * 100))
+                c = max(0, 100 - (est_cost / budget * 1000))
             else:
                 c = 50.0
 
@@ -318,6 +307,9 @@ class BalancedPolicy(SchedulingPolicyBase):
                 fairness_base * self.w_fair +
                 a * self.w_agent
             )
+
+            # Add small FIFO component as tiebreaker
+            composite += (10 - i) * 0.01
 
             scores.append(SchedulingScore(
                 task_id=task.task_id,
@@ -350,3 +342,8 @@ def get_policy(name: str, **kwargs: Any) -> SchedulingPolicyBase:
     if name not in POLICY_REGISTRY:
         raise ValueError(f"Unknown policy '{name}'. Available: {list(POLICY_REGISTRY.keys())}")
     return POLICY_REGISTRY[name](**kwargs)
+
+
+def list_policies() -> list[str]:
+    """List all available policy names."""
+    return list(POLICY_REGISTRY.keys())

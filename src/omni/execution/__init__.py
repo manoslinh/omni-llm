@@ -17,7 +17,7 @@ from .models import (
     TaskExecutionError,
     TaskFatalError,
 )
-from .policies import (
+from ..scheduling.policies import (
     BalancedPolicy,
     CostAwarePolicy,
     DeadlinePolicy,

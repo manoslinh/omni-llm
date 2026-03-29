@@ -7,7 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from omni.execution.policies import (
+from src.omni.scheduling.policies import (
     BalancedPolicy,
     CostAwarePolicy,
     DeadlinePolicy,

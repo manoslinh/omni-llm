@@ -205,7 +205,7 @@ class ProviderRegistry:
     ) -> None:
         """
         Register a provider with the registry.
-        
+
         Args:
             provider_name: Name of the provider
             provider: The provider instance to register
@@ -509,11 +509,8 @@ class ProviderRegistry:
             logger.debug(f"Provider '{provider_name}' doesn't have supports_streaming property")
 
         # Check for function/tools calling support
-        try:
-            if provider.supports_tools:
-                metadata.capabilities.add(Capability.FUNCTION_CALLING)
-        except AttributeError:
-            logger.debug(f"Provider '{provider_name}' doesn't have supports_tools property")
+        if hasattr(provider, "supports_tools") and getattr(provider, "supports_tools", False):
+            metadata.capabilities.add(Capability.FUNCTION_CALLING)
 
         # Check cost per token to infer supported models
         try:
@@ -528,25 +525,26 @@ class ProviderRegistry:
             logger.debug(f"Provider '{provider_name}' doesn't have cost_per_token property")
 
         # Check for list_models method to discover supported models
-        try:
-            models = provider.list_models()
-            if models:
-                metadata.supported_models.update(models)
-        except (AttributeError, TypeError):
-            logger.debug(f"Provider '{provider_name}' doesn't have list_models method")
+        if hasattr(provider, "list_models"):
+            try:
+                models = provider.list_models()
+                if models:
+                    metadata.supported_models.update(models)
+            except TypeError:
+                logger.debug(f"Provider '{provider_name}' list_models() raised TypeError")
 
         # Check for get_capabilities method to discover per-model capabilities
-        try:
+        if hasattr(provider, "get_capabilities"):
             models_to_check = list(metadata.supported_models) if metadata.supported_models else []
-            if not models_to_check:
+            if not models_to_check and hasattr(provider, "list_models"):
                 try:
                     models_to_check = provider.list_models() or []
-                except (AttributeError, TypeError):
+                except TypeError:
                     pass
             for model_id in models_to_check:
                 try:
                     caps = provider.get_capabilities(model_id)
-                    model_cap = {}
+                    model_cap: dict[str, Any] = {}
                     # Copy all capability fields from ModelCapabilities
                     for attr in ['supports_streaming', 'supports_tools', 'supports_vision',
                                  'supports_audio', 'max_context_tokens', 'supports_edit_format',
@@ -557,8 +555,6 @@ class ProviderRegistry:
                         metadata.model_capabilities[model_id] = model_cap
                 except (AttributeError, TypeError):
                     pass
-        except (AttributeError, TypeError):
-            logger.debug(f"Provider '{provider_name}' doesn't have get_capabilities method")
 
         # TODO: More sophisticated capability discovery
         # - Test function calling with a simple test

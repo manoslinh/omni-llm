@@ -105,7 +105,7 @@ class TestResourcePool:
         # The integration test shows we should use pool.available_concurrent
         # and pool.utilization for capacity information
         assert pool.available_concurrent == 10
-        
+
         # Set rate limits
         pool.max_total_tokens_per_minute = 10000
         pool.max_total_cost_per_hour = 10.0
@@ -150,29 +150,29 @@ class TestResourcePool:
     def test_concurrent_access(self, pool):
         """Test thread-safe concurrent access."""
         import threading
-        
+
         results = []
         lock = threading.Lock()
-        
+
         def allocate_workflow(wf_id: str):
             success = pool.allocate(execution_id=wf_id, concurrent=1)
             with lock:
                 results.append(success)
-        
+
         # Create multiple threads that allocate concurrently
         threads = [
             threading.Thread(target=allocate_workflow, args=(f"wf-{i}",))
             for i in range(15)  # More than capacity
         ]
-        
+
         # Start all threads
         for t in threads:
             t.start()
-        
+
         # Wait for all threads to complete
         for t in threads:
             t.join()
-        
+
         # Should have exactly 10 successful allocations (pool capacity)
         successful = sum(1 for r in results if r)
         assert successful == 10

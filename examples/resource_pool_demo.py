@@ -9,7 +9,6 @@ This shows how the Global Resource Manager enables:
 4. Integration with P2-15 ResourceManager
 """
 
-import asyncio
 import logging
 import os
 import sys

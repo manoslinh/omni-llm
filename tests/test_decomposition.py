@@ -722,6 +722,88 @@ class TestTaskDecompositionEngine:
         assert len(history) == 1
         assert history[0] is result
 
+    def test_decompose_default_complexity_estimates_and_decomposes(self) -> None:
+        """Test that tasks with no explicit complexity get estimated and decomposed."""
+        engine = TaskDecompositionEngine()
+        
+        # Task with no complexity estimate (complexity=None)
+        task = Task(
+            description="Build a complete web application with authentication and database",
+            task_type=TaskType.CODE_GENERATION,
+            # No complexity provided - should be estimated
+        )
+        
+        # Initially task.complexity should be None
+        assert task.complexity is None
+        
+        result = engine.decompose(task)
+        
+        # After decomposition, task should have estimated complexity
+        assert task.complexity is not None
+        assert task.complexity.overall_score > 1.0  # Should be estimated > default
+        
+        # Should decompose into multiple subtasks
+        assert result.total_subtasks > 1
+        assert result.strategy_used != "trivial"
+        
+        # Confidence should be reasonable
+        assert 0.0 < result.confidence <= 1.0
+
+    def test_complex_task_gets_multiple_subtasks(self) -> None:
+        """Test that complex tasks decompose into multiple subtasks."""
+        engine = TaskDecompositionEngine()
+        
+        # Complex task description
+        task = Task(
+            description="complete web app with auth and database",
+            task_type=TaskType.CODE_GENERATION,
+            # No complexity provided - will be estimated
+        )
+        
+        result = engine.decompose(task)
+        
+        # Should get multiple subtasks for a complex task
+        assert result.total_subtasks >= 3, f"Expected >=3 subtasks for complex task, got {result.total_subtasks}"
+        
+        # Check subtask types distribution
+        subtask_types = [st.subtask_type for st in result.task_graph.tasks.values() 
+                        if isinstance(st, Subtask)]
+        type_counts = {}
+        for st_type in subtask_types:
+            type_counts[st_type] = type_counts.get(st_type, 0) + 1
+        
+        # Should have implementation subtasks
+        assert SubtaskType.IMPLEMENTATION in type_counts
+        
+        # Should have reasonable confidence
+        assert result.confidence >= 0.5
+
+    def test_simple_task_stays_trivial(self) -> None:
+        """Test that simple tasks don't decompose (stay trivial)."""
+        engine = TaskDecompositionEngine()
+        
+        # Very simple task with task type that gives low complexity score
+        task = Task(
+            description="fix typo",
+            task_type=TaskType.DOCUMENTATION,  # Documentation gives lower complexity
+            # No complexity provided
+        )
+        
+        result = engine.decompose(task)
+        
+        # Should be trivial (no decomposition needed)
+        assert result.strategy_used == "trivial"
+        assert result.total_subtasks == 1
+        
+        # Confidence should be high for trivial tasks
+        assert result.confidence == 1.0
+        
+        # The single subtask should be the task itself
+        subtask = next(st for st in result.task_graph.tasks.values() 
+                      if isinstance(st, Subtask))
+        assert subtask.description == "fix typo"
+        assert subtask.parent_id == task.task_id
+
 
 # ── Integration Tests ───────────────────────────────────────────────
 

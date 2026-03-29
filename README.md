@@ -70,6 +70,107 @@ CLI → Orchestration → Agent/Model Providers → Infrastructure
 4. **Verification Pipeline**: Multi-layer quality checks
 5. **Git Integration**: Worktree isolation, AI attribution, undo
 
+## Orchestration Examples
+
+### Single Agent with Smart Routing
+```python
+from omni.router import ModelRouter
+from omni.task.models import Task, TaskType
+
+router = ModelRouter()
+task = Task(
+    description="Add error handling to the authentication module",
+    task_type=TaskType.CODE_GENERATION
+)
+
+# Router automatically selects best model based on task type and cost
+selected_model = router.select_model(task)
+print(f"Selected model: {selected_model}")
+# Output: deepseek/deepseek-chat (cost-effective for code generation)
+```
+
+### Multi-Agent Parallel Execution
+```python
+from omni.coordination import CoordinationEngine
+from omni.decomposition import TaskDecompositionEngine
+
+# Decompose complex task into subtasks
+decomposer = TaskDecompositionEngine()
+task_graph = decomposer.decompose("Refactor the entire codebase for performance")
+
+# Coordinate multiple agents to work in parallel
+coordinator = CoordinationEngine()
+workflow_plan = coordinator.coordinate(task_graph)
+
+# Execute in parallel waves
+for wave in workflow_plan.get_execution_waves():
+    print(f"Executing wave with {len(wave)} parallel tasks")
+```
+
+### Workflow from Template
+```python
+from omni.orchestration import WorkflowEngine
+
+engine = WorkflowEngine()
+
+# Load a predefined workflow template
+template = engine.load_template("examples/workflow_templates/code_review_workflow.yaml")
+
+# Execute with custom parameters
+result = engine.execute(template, {
+    "filename": "src/auth.py",
+    "reviewer": "senior-coder",
+    "strictness": "high"
+})
+
+print(f"Workflow completed: {result.success}")
+```
+
+### Workflow Template Authoring
+Create reusable workflow templates in YAML:
+
+```yaml
+# examples/workflow_templates/feature_implementation.yaml
+name: "Feature Implementation Workflow"
+description: "Standard workflow for implementing new features"
+version: "1.0.0"
+
+variables:
+  feature_name:
+    description: "Name of the feature to implement"
+    required: true
+    type: "string"
+  add_tests:
+    description: "Whether to include tests"
+    default: true
+    type: "boolean"
+
+steps:
+  - name: "requirements_analysis"
+    task_type: "analysis"
+    description: "Analyze requirements for {feature_name}"
+    agent: "thinker"
+
+  - name: "implementation"
+    task_type: "code_generation"
+    description: "Implement {feature_name}"
+    depends_on: ["requirements_analysis"]
+    agent: "coder"
+
+  - name: "testing"
+    task_type: "testing"
+    description: "Test {feature_name}"
+    depends_on: ["implementation"]
+    condition: "{add_tests}"
+    agent: "intern"
+
+  - name: "code_review"
+    task_type: "code_review"
+    description: "Review implementation of {feature_name}"
+    depends_on: ["implementation", "testing"]
+    agent: "reader"
+```
+
 ## Supported Models
 
 - **OpenAI**: GPT-4, GPT-4.1, GPT-3.5
@@ -81,25 +182,31 @@ CLI → Orchestration → Agent/Model Providers → Infrastructure
 
 ## Project Status
 
-**Phase 0: Foundation** (Weeks 1-4) - In Progress
-- [ ] Project scaffold + CI/CD
-- [ ] ModelProvider interface + LiteLLM backend
-- [ ] EditLoop service (core cycle)
-- [ ] Git integration
-- [ ] Basic CLI
+**Phase 0: Foundation** (Weeks 1-4) - ✅ **Complete**
+- [x] Project scaffold + CI/CD
+- [x] ModelProvider interface + LiteLLM backend
+- [x] EditLoop service (core cycle)
+- [x] Git integration
+- [x] Basic CLI
 
-**Phase 1: Core Engine** (Weeks 5-12)
-- [ ] Model Router
-- [ ] Additional edit formats
-- [ ] Verification pipeline
-- [ ] Configuration system
-- [ ] Observability dashboard
+**Phase 1: Core Engine** (Weeks 5-12) - ✅ **Complete**
+- [x] Model Router
+- [x] Additional edit formats
+- [x] Verification pipeline
+- [x] Configuration system
+- [x] Observability dashboard
 
-**Phase 2: Orchestration** (Weeks 13-24)
-- [ ] Multi-agent coordination
-- [ ] Task decomposition
-- [ ] Parallel execution
-- [ ] Workflow templates
+**Phase 2: Orchestration** (Weeks 13-24) - ✅ **Complete**
+- [x] Multi-agent coordination
+- [x] Task decomposition
+- [x] Parallel execution
+- [x] Workflow templates
+
+**Phase 3: Advanced Features** (Weeks 25-36) - **Planning**
+- [ ] Advanced optimization algorithms
+- [ ] Self-improving routing
+- [ ] Cross-repository coordination
+- [ ] Enterprise features
 
 ## Development
 

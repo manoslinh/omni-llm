@@ -1,0 +1,80 @@
+# Refactoring Workflow Template
+# Safe refactoring with validation at each step
+
+name: "Safe Refactoring Workflow"
+description: "Incremental refactoring workflow with safety checks"
+version: "1.0.0"
+
+variables:
+  target_file:
+    description: "File to refactor"
+    required: true
+    type: "string"
+  refactoring_type:
+    description: "Type of refactoring (extract-method, rename, simplify, etc.)"
+    required: true
+    type: "string"
+  safety_level:
+    description: "Safety level (low, medium, high)"
+    default: "medium"
+    type: "string"
+
+metadata:
+  category: "code-maintenance"
+  estimated_time: "30-60 minutes"
+  complexity: "medium"
+
+steps:
+  - name: "pre_refactor_analysis"
+    task_type: "analysis"
+    description: "Analyze {target_file} for {refactoring_type} refactoring with {safety_level} safety"
+    files: ["{target_file}"]
+    model_override: "reader"
+
+  - name: "create_backup"
+    task_type: "code_generation"
+    description: "Create backup or snapshot of {target_file} before refactoring"
+    files: ["{target_file}"]
+    depends_on: ["pre_refactor_analysis"]
+    model_override: "intern"
+
+  - name: "execute_refactoring"
+    task_type: "refactoring"
+    description: "Execute {refactoring_type} refactoring on {target_file}"
+    files: ["{target_file}"]
+    depends_on: ["create_backup"]
+    model_override: "coder"
+
+  - name: "run_unit_tests"
+    task_type: "testing"
+    description: "Run unit tests to verify refactoring didn't break functionality"
+    files: ["{target_file}"]
+    depends_on: ["execute_refactoring"]
+
+  - name: "code_review"
+    task_type: "code_review"
+    description: "Review refactoring changes for {target_file}"
+    files: ["{target_file}"]
+    depends_on: ["execute_refactoring"]
+    condition: "{safety_level} != 'low'"
+
+  - name: "integration_check"
+    task_type: "testing"
+    description: "Run integration tests to check broader impact of refactoring"
+    files: ["{target_file}"]
+    depends_on: ["run_unit_tests"]
+    condition: "{safety_level} == 'high'"
+
+  - name: "update_documentation"
+    task_type: "documentation"
+    description: "Update documentation to reflect refactoring changes"
+    files: ["{target_file}"]
+    depends_on: ["execute_refactoring"]
+    condition: "{update_docs}"
+
+  - name: "final_verification"
+    task_type: "analysis"
+    description: "Final verification of refactoring completeness and safety"
+    files: ["{target_file}"]
+    depends_on: ["run_unit_tests", "code_review", "integration_check", "update_documentation"]
+    model_override: "thinker"

@@ -28,10 +28,10 @@ async def git_repo(tmp_path):
 
     # Initialize git repo with main as default branch
     repo = GitRepository(path=str(repo_path))
-    
+
     # Configure git to use main as default branch
     await repo._run_git(["config", "init.defaultBranch", "main"])
-    
+
     # Rename master to main if it exists
     try:
         await repo._run_git(["branch", "-m", "master", "main"])

@@ -44,6 +44,21 @@ class ComplexityAnalyzer:
         """Initialize the complexity analyzer."""
         pass
 
+    def _contains_word(self, text: str, word: str) -> bool:
+        """Check if text contains word with word boundaries.
+
+        Args:
+            text: Text to search in
+            word: Word to search for
+
+        Returns:
+            True if word is found with word boundaries, False otherwise
+        """
+        # Create a regex pattern that matches the word with word boundaries
+        # Using \b for word boundary, escaping special regex characters in word
+        pattern = r'\b' + re.escape(word) + r'\b'
+        return bool(re.search(pattern, text, re.IGNORECASE))
+
     def estimate_tokens(self, task: Task) -> int:
         """Estimate token count for a task description.
 
@@ -223,6 +238,40 @@ class ComplexityAnalyzer:
         elif word_count < 10:
             base_score -= 1
 
+        # Look for keywords that indicate high complexity
+        description_lower = task.description.lower()
+
+        # Keywords indicating complex systems
+        complex_keywords = [
+            "complete", "full", "entire", "whole", "system", "application", "app",
+            "platform", "service", "api", "backend", "frontend", "database",
+            "authentication", "authorization", "deployment", "production",
+            "microservice", "architecture", "infrastructure", "security",
+            "auth", "login", "signup", "register", "password", "oauth", "jwt",
+            "encryption", "cryptography", "ssl", "tls", "https"
+        ]
+
+        # Keywords indicating multiple components
+        multi_component_keywords = [
+            "and", "with", "including", "plus", "along with", "together with",
+            "combined", "integrated", "multiple"
+        ]
+
+        # Count complex keywords with word boundary matching
+        complex_count = sum(1 for keyword in complex_keywords if self._contains_word(description_lower, keyword))
+        base_score += min(3, complex_count)  # Add up to 3 points for complexity
+
+        # Check for multiple technologies/components with word boundary matching
+        if any(self._contains_word(description_lower, keyword) for keyword in multi_component_keywords):
+            # Count distinct technologies mentioned with word boundary matching
+            tech_keywords = [
+                "flask", "django", "fastapi", "react", "vue", "angular", "node",
+                "express", "postgresql", "mysql", "mongodb", "redis", "docker",
+                "kubernetes", "aws", "azure", "gcp", "terraform", "ansible"
+            ]
+            tech_count = sum(1 for tech in tech_keywords if self._contains_word(description_lower, tech))
+            base_score += min(3, tech_count)  # Add up to 3 points for multiple technologies
+
         return max(1, min(10, base_score))
 
     def _calculate_integration_complexity(self, task: Task, dependency_depth: int) -> int:
@@ -244,6 +293,37 @@ class ComplexityAnalyzer:
         elif task_type_str in ["code_generation", "testing"]:
             base_score += 1
 
+        # Check for integration requirements in description
+        description_lower = task.description.lower()
+
+        # Keywords indicating integration needs
+        integration_keywords = [
+            "integrate", "connect", "link", "combine", "interface", "api",
+            "backend", "frontend", "database", "service", "microservice",
+            "orchestrate", "coordinate", "synchronize", "bridge"
+        ]
+
+        # Keywords indicating multiple components that need integration
+        multi_component_keywords = [
+            "and", "with", "between", "across", "multiple", "several",
+            "various", "different", "both", "all"
+        ]
+
+        # Check for integration keywords with word boundary matching
+        integration_count = sum(1 for keyword in integration_keywords if self._contains_word(description_lower, keyword))
+        base_score += min(3, integration_count)
+
+        # Check for multiple components that need integration with word boundary matching
+        if any(self._contains_word(description_lower, keyword) for keyword in multi_component_keywords):
+            # Count mentions of different components with word boundary matching
+            component_indicators = [
+                "frontend", "backend", "database", "api", "ui", "server",
+                "client", "service", "module", "component", "layer"
+            ]
+            component_count = sum(1 for comp in component_indicators if self._contains_word(description_lower, comp))
+            if component_count >= 2:
+                base_score += 2  # Multiple components need integration
+
         return max(1, min(10, base_score))
 
     def _calculate_testing_complexity(self, task: Task) -> int:
@@ -258,6 +338,22 @@ class ComplexityAnalyzer:
             base_score += 2
         elif task_type_str in ["documentation", "configuration"]:
             base_score -= 1
+
+        # Check for testing-related keywords in description
+        description_lower = task.description.lower()
+
+        # Keywords that indicate testing requirements
+        testing_keywords = [
+            "test", "testing", "validate", "validation", "verify", "verification",
+            "check", "assert", "unit", "integration", "e2e", "end-to-end",
+            "quality", "qa", "coverage", "bug", "defect", "issue", "fix",
+            "debug", "troubleshoot", "diagnose", "regression", "performance",
+            "security", "load", "stress", "usability", "accessibility"
+        ]
+
+        # Count testing keywords with word boundary matching
+        testing_count = sum(1 for keyword in testing_keywords if self._contains_word(description_lower, keyword))
+        base_score += min(3, testing_count)  # Add up to 3 points for testing requirements
 
         return max(1, min(10, base_score))
 
@@ -280,11 +376,11 @@ class ComplexityAnalyzer:
             "add", "remove", "modify", "refactor"
         ]
 
-        # Count uncertain keywords
-        uncertain_count = sum(1 for keyword in uncertain_keywords if keyword in description)
+        # Count uncertain keywords with word boundary matching
+        uncertain_count = sum(1 for keyword in uncertain_keywords if self._contains_word(description, keyword))
 
-        # Count clear keywords
-        clear_count = sum(1 for keyword in clear_keywords if keyword in description)
+        # Count clear keywords with word boundary matching
+        clear_count = sum(1 for keyword in clear_keywords if self._contains_word(description, keyword))
 
         # Adjust score based on keyword counts
         base_score += uncertain_count * 2

@@ -2,11 +2,10 @@
 Tests for the interactive setup wizard.
 """
 
-import asyncio
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 import yaml
@@ -400,7 +399,7 @@ class TestSetupWizard:
         mock_ask_api_key.return_value = "test-key"
         mock_test_connection.return_value = (True, ["openai/gpt-4"])
         mock_save_config.return_value = True
-        
+
         # Make configure_provider actually add providers
         def configure_provider_side_effect(provider_name: str, api_key: str, models: list[str], **kwargs) -> None:
             wizard.configured_providers.append("OpenAI")
@@ -497,7 +496,7 @@ class TestSetupWizard:
 
             assert result is True
             assert config_path.exists()
-            
+
             # Check file permissions (should be 0o600)
             import stat
             file_mode = config_path.stat().st_mode
@@ -586,76 +585,76 @@ class TestSetupWizard:
     def test_get_default_max_tokens(self) -> None:
         """Test getting default max tokens for providers."""
         wizard = SetupWizard()
-        
+
         # Test OpenAI
         assert wizard._get_default_max_tokens("openai", "gpt-4") == 8192
-        
+
         # Test Anthropic
         assert wizard._get_default_max_tokens("anthropic", "claude-3") == 200000
-        
+
         # Test Google
         assert wizard._get_default_max_tokens("google", "gemini") == 1000000
-        
+
         # Test DeepSeek
         assert wizard._get_default_max_tokens("deepseek", "deepseek-chat") == 64000
-        
+
         # Test Ollama
         assert wizard._get_default_max_tokens("ollama", "llama2") == 4096
-        
+
         # Test unknown provider
         assert wizard._get_default_max_tokens("unknown", "model") == 4096
 
     def test_get_temperature_range(self) -> None:
         """Test getting temperature ranges for providers."""
         wizard = SetupWizard()
-        
+
         # Test OpenAI
         assert wizard._get_temperature_range("openai") == [0.0, 2.0]
-        
+
         # Test Anthropic
         assert wizard._get_temperature_range("anthropic") == [0.0, 1.0]
-        
+
         # Test Google
         assert wizard._get_temperature_range("google") == [0.0, 2.0]
-        
+
         # Test DeepSeek
         assert wizard._get_temperature_range("deepseek") == [0.0, 2.0]
-        
+
         # Test Ollama
         assert wizard._get_temperature_range("ollama") == [0.0, 1.0]
-        
+
         # Test unknown provider
         assert wizard._get_temperature_range("unknown") == [0.0, 1.0]
 
     def test_get_cost_config(self) -> None:
         """Test getting cost configurations for providers."""
         wizard = SetupWizard()
-        
+
         # Test OpenAI GPT-4
         gpt4_cost = wizard._get_cost_config("openai", "openai/gpt-4")
         assert gpt4_cost["input"] == 30.00
         assert gpt4_cost["output"] == 60.00
-        
+
         # Test OpenAI GPT-3.5
         gpt35_cost = wizard._get_cost_config("openai", "openai/gpt-3.5-turbo")
         assert gpt35_cost["input"] == 0.50
         assert gpt35_cost["output"] == 1.50
-        
+
         # Test Anthropic Opus
         opus_cost = wizard._get_cost_config("anthropic", "anthropic/claude-3-opus")
         assert opus_cost["input"] == 15.00
         assert opus_cost["output"] == 75.00
-        
+
         # Test Google Gemini Pro
         gemini_pro_cost = wizard._get_cost_config("google", "google/gemini-pro")
         assert gemini_pro_cost["input"] == 3.50
         assert gemini_pro_cost["output"] == 10.50
-        
+
         # Test DeepSeek
         deepseek_cost = wizard._get_cost_config("deepseek", "deepseek/deepseek-chat")
         assert deepseek_cost["input"] == 0.28
         assert deepseek_cost["output"] == 0.42
-        
+
         # Test Ollama (free)
         ollama_cost = wizard._get_cost_config("ollama", "ollama/llama2")
         assert ollama_cost["input"] == 0.00

@@ -17,12 +17,14 @@ from ..observability.cli import register_execute_command
 from ..task.models import Task, TaskType
 
 # Import setup wizard
+SETUP_AVAILABLE = False
+setup_command: click.Command | None = None
 try:
-    from .setup import setup as setup_command
+    from .setup import setup as setup_fn
     SETUP_AVAILABLE = True
+    setup_command = setup_fn
 except ImportError:
-    SETUP_AVAILABLE = False
-    setup_command = None
+    pass
 
 # Import orchestration modules for new commands
 try:
@@ -84,7 +86,7 @@ def setup() -> None:
         click.echo("❌ Setup wizard not available")
         click.echo("Make sure rich is installed: pip install rich")
         return
-    
+
     # Call the setup command
     setup_command()
 

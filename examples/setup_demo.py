@@ -7,7 +7,6 @@ without requiring actual API keys.
 """
 
 import asyncio
-import os
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -22,13 +21,13 @@ async def demo_setup_wizard() -> None:
     print("=" * 60)
     print("\nThis demo shows how the setup wizard guides users through configuration.")
     print("All user inputs and API calls are mocked for demonstration purposes.\n")
-    
+
     with tempfile.TemporaryDirectory() as tmpdir:
         config_path = Path(tmpdir) / "config.yaml"
         print(f"Demo config will be saved to: {config_path}")
-        
+
         wizard = SetupWizard()
-        
+
         # Mock the config path
         with patch.object(wizard, "config_path", config_path):
             # Mock all user interactions
@@ -42,11 +41,11 @@ async def demo_setup_wizard() -> None:
                     False,  # No DeepSeek key
                     False,  # No local models
                 ]
-                
+
                 # Mock API key input
                 with patch("omni.cli.setup.Prompt.ask") as mock_prompt:
                     mock_prompt.return_value = "sk-demo-openai-key-1234567890"
-                    
+
                     # Mock connection tests
                     with patch.object(wizard, "_test_openai_connection") as mock_test_openai:
                         mock_test_openai.return_value = (True, [
@@ -54,7 +53,7 @@ async def demo_setup_wizard() -> None:
                             "openai/gpt-4-turbo-preview",
                             "openai/gpt-3.5-turbo",
                         ])
-                        
+
                         with patch.object(wizard, "_test_anthropic_connection"):
                             with patch.object(wizard, "_test_google_connection"):
                                 with patch.object(wizard, "_test_deepseek_connection"):
@@ -62,14 +61,14 @@ async def demo_setup_wizard() -> None:
                                     print("\n" + "=" * 60)
                                     print("Starting setup wizard...")
                                     print("=" * 60 + "\n")
-                                    
+
                                     success = await wizard.run()
-                                    
+
                                     if success:
                                         print("\n" + "=" * 60)
                                         print("Setup completed successfully!")
                                         print("=" * 60)
-                                        
+
                                         # Show the generated config
                                         print("\nGenerated configuration:")
                                         print("-" * 40)
@@ -102,7 +101,7 @@ if __name__ == "__main__":
     # Run the demo
     asyncio.run(demo_setup_wizard())
     demo_cli_command()
-    
+
     print("\n" + "=" * 60)
     print("Demo complete!")
     print("=" * 60)

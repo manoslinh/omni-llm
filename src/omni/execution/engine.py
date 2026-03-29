@@ -37,7 +37,7 @@ class ParallelExecutionEngine:
         callbacks: ExecutionCallbacks | None = None,
         db_path: str | Path = "omni_executions.db",
         worktree_manager: Any | None = None,  # WorktreeManager from omni.git
-        policy: Any | None = None,  # SchedulingPolicyBase from scheduling module
+        policy: Any | None = None,  # SchedulingPolicyBase from scheduling.policies
     ) -> None:
         """
         Args:
@@ -56,16 +56,11 @@ class ParallelExecutionEngine:
         self.db = ExecutionDB(db_path)
         self.worktree_manager = worktree_manager
         
-        # Import here to avoid circular imports and handle both possible policy locations
+        # Import here to avoid circular imports
         if policy is None:
-            try:
-                # Try to import from scheduling module first (PR #46)
-                from ..scheduling.policies import FIFOPolicy
-                self.policy = FIFOPolicy()
-            except ImportError:
-                # Fall back to execution policies (our branch)
-                from .policies import FIFOPolicy
-                self.policy = FIFOPolicy()
+            # Use scheduling module policies (from PR #46)
+            from ..scheduling.policies import FIFOPolicy
+            self.policy = FIFOPolicy()
         else:
             self.policy = policy
 

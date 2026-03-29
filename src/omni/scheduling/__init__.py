@@ -8,12 +8,13 @@ Provides:
 - ScheduleAdjuster for real-time adjustments
 """
 
-from .adjuster import (
-    Adjustment,
-    AdjustmentResult,
-    AdjustmentType,
-    ScheduleAdjuster,
-)
+# Adjuster is in execution module, not scheduling
+# from .adjuster import (
+#     Adjustment,
+#     AdjustmentResult,
+#     AdjustmentType,
+#     ScheduleAdjuster,
+# )
 from .models import ResourceBudget
 from .predictive import (
     BottleneckDetector,
@@ -40,9 +41,9 @@ __all__ = [
     "ExecutionRecord",
     "WorkloadForecast",
 
-    # Real-time adjustments
-    "ScheduleAdjuster",
-    "Adjustment",
-    "AdjustmentResult",
-    "AdjustmentType",
+    # Real-time adjustments (in execution module)
+    # "ScheduleAdjuster",
+    # "Adjustment",
+    # "AdjustmentResult",
+    # "AdjustmentType",
 ]

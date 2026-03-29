@@ -173,9 +173,7 @@ class Scheduler:
         running_info = {}
         for task_id, task_future in self.running_tasks.items():
             # Get task start time if available from the future
-            started_at = None
-            if hasattr(task_future, '_started_at'):
-                started_at = task_future._started_at  # type: ignore
+            started_at = getattr(task_future, '_started_at', None)
 
             running_info[task_id] = {
                 "workflow_id": self.graph.name,
@@ -256,7 +254,7 @@ class Scheduler:
                 coro = self._execute_task_with_retry(task)
                 task_future = asyncio.create_task(coro)
                 # Add start time for scheduling context
-                task_future._started_at = time.time()  # type: ignore[attr-defined]
+                task_future._started_at = time.time()  # type: ignore
                 self.running_tasks[task.task_id] = task_future
                 scheduled += 1
 

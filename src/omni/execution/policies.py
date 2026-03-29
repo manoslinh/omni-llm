@@ -110,9 +110,9 @@ class PriorityPolicy(SchedulingPolicyBase):
                 priority = max(0, min(100, priority))
                 # Map to score: higher priority = higher score
                 p_score = float(priority)
-            else:  # type: ignore
+            else:
                 # Fallback for string priorities (backward compatibility)
-                priority_map = {"critical": 100, "high": 75, "medium": 50, "low": 25}
+                priority_map = {"critical": 100, "high": 75, "medium": 50, "low": 25}  # type: ignore[unreachable]
                 p_score = priority_map.get(str(priority).lower(), 50)
 
             scores.append(SchedulingScore(
@@ -293,9 +293,9 @@ class BalancedPolicy(SchedulingPolicyBase):
                 # Normalize to 0-100 scale
                 priority = max(0, min(100, priority))
                 p = float(priority)
-            else:  # type: ignore
+            else:
                 # Fallback for string priorities (backward compatibility)
-                priority_map = {"critical": 100, "high": 75, "medium": 50, "low": 25}
+                priority_map = {"critical": 100, "high": 75, "medium": 50, "low": 25}  # type: ignore[unreachable]
                 p = priority_map.get(str(priority).lower(), 50)
             d = deadline_scores.get(task.task_id, 0.0)
             a = agent_scores.get(task.task_id, 0.0)

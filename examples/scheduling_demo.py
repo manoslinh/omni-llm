@@ -13,13 +13,13 @@ import asyncio
 import logging
 from unittest.mock import Mock
 
+from omni.execution.adjuster import ScheduleAdjuster
 from omni.execution.policies import (
     BalancedPolicy,
     DeadlinePolicy,
     FIFOPolicy,
     PriorityPolicy,
 )
-from omni.scheduling.adjuster import ScheduleAdjuster
 from omni.scheduling.predictive import (
     BottleneckDetector,
     DemandForecaster,

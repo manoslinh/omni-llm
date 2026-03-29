@@ -1,0 +1,757 @@
+"""
+Interactive Setup Wizard for Omni-LLM.
+
+Provides a friendly, guided setup experience for configuring API keys
+and providers for first-time users.
+"""
+
+import asyncio
+import os
+import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import click
+import yaml
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.prompt import Confirm, Prompt
+from rich.table import Table
+
+from ..models.litellm_provider import LiteLLMProvider
+from ..providers.config import (
+    APIKeyConfig,
+    ConfigLoader,
+    ProviderConfig,
+    ProviderConfiguration,
+    ProviderFactory,
+)
+
+console = Console()
+
+
+class SetupWizard:
+    """Interactive setup wizard for Omni-LLM."""
+
+    def __init__(self) -> None:
+        """Initialize the setup wizard."""
+        self.config_path = self._get_config_path()
+        self.existing_config: Optional[ProviderConfiguration] = None
+        self.new_config: Dict[str, Any] = {
+            "providers": {},
+            "defaults": {},
+            "api_keys": {},
+            "provider_configs": {},
+            "cost_config": {"rates": {}},
+            "budget": {},
+            "rate_limiting": {},
+        }
+        self.configured_providers: List[str] = []
+        self.configured_models: List[str] = []
+
+    def _get_config_path(self) -> Path:
+        """Get the configuration file path."""
+        # Try XDG config directory first
+        xdg_config_home = os.getenv("XDG_CONFIG_HOME")
+        if xdg_config_home:
+            config_dir = Path(xdg_config_home) / "omni"
+        else:
+            config_dir = Path.home() / ".config" / "omni"
+
+        # Create directory if it doesn't exist
+        config_dir.mkdir(parents=True, exist_ok=True)
+
+        return config_dir / "config.yaml"
+
+    def _load_existing_config(self) -> bool:
+        """Load existing configuration if it exists."""
+        if self.config_path.exists():
+            try:
+                self.existing_config = ConfigLoader.load_providers_config(
+                    self.config_path
+                )
+                console.print(
+                    f"[dim]Found existing configuration at: {self.config_path}[/dim]"
+                )
+                return True
+            except Exception as e:
+                console.print(
+                    f"[yellow]Warning: Could not load existing config: {e}[/yellow]"
+                )
+        return False
+
+    def _save_config(self) -> bool:
+        """Save configuration to file."""
+        try:
+            # Convert new_config to YAML
+            with open(self.config_path, "w") as f:
+                yaml.dump(self.new_config, f, default_flow_style=False, sort_keys=False)
+
+            console.print(
+                f"\n[green]✅ Configuration saved to: {self.config_path}[/green]"
+            )
+            return True
+        except Exception as e:
+            console.print(f"[red]❌ Error saving configuration: {e}[/red]")
+            return False
+
+    def _show_welcome(self) -> None:
+        """Show welcome message."""
+        welcome_text = """
+        [bold cyan]Welcome to Omni-LLM! 🎉[/bold cyan]
+
+        Let's get you set up in under 2 minutes.
+
+        We'll configure your AI providers so you can
+        experience multi-agent orchestration.
+        """
+        console.print(Panel(welcome_text, border_style="cyan"))
+
+    def _ask_for_api_key(self, provider_name: str, env_var: str) -> Optional[str]:
+        """Ask user for an API key with masked input."""
+        console.print(f"\n[bold]Configuring {provider_name}[/bold]")
+
+        has_key = Confirm.ask(
+            f"Do you have a {provider_name} API key?",
+            default=True,
+        )
+
+        if not has_key:
+            console.print(f"[dim]Skipping {provider_name} configuration[/dim]")
+            return None
+
+        # Try to get from environment first
+        env_value = os.getenv(env_var)
+        if env_value:
+            use_env = Confirm.ask(
+                f"Found {env_var} in environment. Use it?",
+                default=True,
+            )
+            if use_env:
+                console.print(f"[green]Using {env_var} from environment[/green]")
+                return env_value
+
+        # Ask for key with masked input
+        api_key = Prompt.ask(
+            f"Enter your {provider_name} API key",
+            password=True,
+        )
+
+        if not api_key or api_key.strip() == "":
+            console.print(f"[yellow]Empty API key provided, skipping {provider_name}[/yellow]")
+            return None
+
+        return api_key.strip()
+
+    async def _test_openai_connection(self, api_key: str) -> Tuple[bool, List[str]]:
+        """Test OpenAI connection and list available models."""
+        try:
+            # Temporarily set the API key
+            os.environ["OPENAI_API_KEY"] = api_key
+
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                transient=True,
+            ) as progress:
+                task = progress.add_task(
+                    "Testing OpenAI connection...", total=None
+                )
+
+                provider = LiteLLMProvider()
+                models = provider.list_models()
+
+                # Filter for OpenAI models
+                openai_models = [m for m in models if m.startswith("openai/")]
+                available_models = sorted(openai_models)[:10]  # Show first 10
+
+                if available_models:
+                    progress.update(
+                        task,
+                        description=f"[green]✅ Success! Found {len(openai_models)} OpenAI models[/green]",
+                    )
+                    return True, available_models
+                else:
+                    progress.update(
+                        task,
+                        description="[yellow]⚠️  Connected but no OpenAI models found[/yellow]",
+                    )
+                    return False, []
+
+        except Exception as e:
+            console.print(f"[red]❌ Connection failed: {e}[/red]")
+            return False, []
+        finally:
+            # Clean up temporary environment variable
+            if "OPENAI_API_KEY" in os.environ and api_key == os.environ["OPENAI_API_KEY"]:
+                del os.environ["OPENAI_API_KEY"]
+
+    async def _test_anthropic_connection(self, api_key: str) -> Tuple[bool, List[str]]:
+        """Test Anthropic connection and list available models."""
+        try:
+            # Temporarily set the API key
+            os.environ["ANTHROPIC_API_KEY"] = api_key
+
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                transient=True,
+            ) as progress:
+                task = progress.add_task(
+                    "Testing Anthropic connection...", total=None
+                )
+
+                provider = LiteLLMProvider()
+                models = provider.list_models()
+
+                # Filter for Anthropic models
+                anthropic_models = [m for m in models if m.startswith("anthropic/")]
+                available_models = sorted(anthropic_models)
+
+                if available_models:
+                    progress.update(
+                        task,
+                        description=f"[green]✅ Success! Found {len(anthropic_models)} Anthropic models[/green]",
+                    )
+                    return True, available_models
+                else:
+                    progress.update(
+                        task,
+                        description="[yellow]⚠️  Connected but no Anthropic models found[/yellow]",
+                    )
+                    return False, []
+
+        except Exception as e:
+            console.print(f"[red]❌ Connection failed: {e}[/red]")
+            return False, []
+        finally:
+            # Clean up temporary environment variable
+            if "ANTHROPIC_API_KEY" in os.environ and api_key == os.environ["ANTHROPIC_API_KEY"]:
+                del os.environ["ANTHROPIC_API_KEY"]
+
+    async def _test_google_connection(self, api_key: str) -> Tuple[bool, List[str]]:
+        """Test Google AI connection and list available models."""
+        try:
+            # Temporarily set the API key
+            os.environ["GOOGLE_API_KEY"] = api_key
+
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                transient=True,
+            ) as progress:
+                task = progress.add_task(
+                    "Testing Google AI connection...", total=None
+                )
+
+                provider = LiteLLMProvider()
+                models = provider.list_models()
+
+                # Filter for Google models
+                google_models = [m for m in models if m.startswith("google/")]
+                available_models = sorted(google_models)
+
+                if available_models:
+                    progress.update(
+                        task,
+                        description=f"[green]✅ Success! Found {len(google_models)} Google models[/green]",
+                    )
+                    return True, available_models
+                else:
+                    progress.update(
+                        task,
+                        description="[yellow]⚠️  Connected but no Google models found[/yellow]",
+                    )
+                    return False, []
+
+        except Exception as e:
+            console.print(f"[red]❌ Connection failed: {e}[/red]")
+            return False, []
+        finally:
+            # Clean up temporary environment variable
+            if "GOOGLE_API_KEY" in os.environ and api_key == os.environ["GOOGLE_API_KEY"]:
+                del os.environ["GOOGLE_API_KEY"]
+
+    async def _test_deepseek_connection(self, api_key: str) -> Tuple[bool, List[str]]:
+        """Test DeepSeek connection and list available models."""
+        try:
+            # Temporarily set the API key
+            os.environ["DEEPSEEK_API_KEY"] = api_key
+
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                transient=True,
+            ) as progress:
+                task = progress.add_task(
+                    "Testing DeepSeek connection...", total=None
+                )
+
+                provider = LiteLLMProvider()
+                models = provider.list_models()
+
+                # Filter for DeepSeek models
+                deepseek_models = [m for m in models if m.startswith("deepseek/")]
+                available_models = sorted(deepseek_models)
+
+                if available_models:
+                    progress.update(
+                        task,
+                        description=f"[green]✅ Success! Found {len(deepseek_models)} DeepSeek models[/green]",
+                    )
+                    return True, available_models
+                else:
+                    progress.update(
+                        task,
+                        description="[yellow]⚠️  Connected but no DeepSeek models found[/yellow]",
+                    )
+                    return False, []
+
+        except Exception as e:
+            console.print(f"[red]❌ Connection failed: {e}[/red]")
+            return False, []
+        finally:
+            # Clean up temporary environment variable
+            if "DEEPSEEK_API_KEY" in os.environ and api_key == os.environ["DEEPSEEK_API_KEY"]:
+                del os.environ["DEEPSEEK_API_KEY"]
+
+    def _configure_openai(self, api_key: str, models: List[str]) -> None:
+        """Configure OpenAI in the new config."""
+        self.new_config["api_keys"]["OPENAI_API_KEY"] = api_key
+        self.new_config["provider_configs"]["openai"] = {
+            "base_url": "https://api.openai.com/v1",
+        }
+
+        # Add OpenAI provider if not exists
+        if "openai" not in self.new_config["providers"]:
+            self.new_config["providers"]["openai"] = {
+                "type": "litellm",
+                "description": "OpenAI models via LiteLLM",
+                "enabled": True,
+                "config": {},
+                "models": {},
+            }
+
+        # Add models
+        for model in models:
+            model_name = model.replace("openai/", "")
+            self.new_config["providers"]["openai"]["models"][model] = {
+                "max_tokens": 8192,
+                "temperature_range": [0.0, 2.0],
+                "supports_functions": True,
+                "supports_tools": True,
+            }
+
+            # Add cost config
+            if "gpt-4" in model:
+                self.new_config["cost_config"]["rates"][model] = {
+                    "input": 30.00,
+                    "output": 60.00,
+                }
+            elif "gpt-3.5" in model:
+                self.new_config["cost_config"]["rates"][model] = {
+                    "input": 0.50,
+                    "output": 1.50,
+                }
+            else:
+                # Default cost for other OpenAI models
+                self.new_config["cost_config"]["rates"][model] = {
+                    "input": 10.00,
+                    "output": 30.00,
+                }
+
+        self.configured_providers.append("OpenAI")
+        self.configured_models.extend(models)
+
+    def _configure_anthropic(self, api_key: str, models: List[str]) -> None:
+        """Configure Anthropic in the new config."""
+        self.new_config["api_keys"]["ANTHROPIC_API_KEY"] = api_key
+        self.new_config["provider_configs"]["anthropic"] = {
+            "base_url": "https://api.anthropic.com",
+            "version": "2023-06-01",
+        }
+
+        # Add Anthropic provider if not exists
+        if "anthropic" not in self.new_config["providers"]:
+            self.new_config["providers"]["anthropic"] = {
+                "type": "litellm",
+                "description": "Anthropic Claude models via LiteLLM",
+                "enabled": True,
+                "config": {},
+                "models": {},
+            }
+
+        # Add models
+        for model in models:
+            model_name = model.replace("anthropic/", "")
+            self.new_config["providers"]["anthropic"]["models"][model] = {
+                "max_tokens": 200000,
+                "temperature_range": [0.0, 1.0],
+                "supports_tools": True,
+            }
+
+            # Add cost config
+            if "opus" in model:
+                self.new_config["cost_config"]["rates"][model] = {
+                    "input": 15.00,
+                    "output": 75.00,
+                }
+            elif "sonnet" in model:
+                self.new_config["cost_config"]["rates"][model] = {
+                    "input": 3.00,
+                    "output": 15.00,
+                }
+            elif "haiku" in model:
+                self.new_config["cost_config"]["rates"][model] = {
+                    "input": 0.25,
+                    "output": 1.25,
+                }
+
+        self.configured_providers.append("Anthropic")
+        self.configured_models.extend(models)
+
+    def _configure_google(self, api_key: str, models: List[str]) -> None:
+        """Configure Google AI in the new config."""
+        self.new_config["api_keys"]["GOOGLE_API_KEY"] = api_key
+        self.new_config["provider_configs"]["google"] = {
+            "base_url": "https://generativelanguage.googleapis.com",
+        }
+
+        # Add Google provider if not exists
+        if "google" not in self.new_config["providers"]:
+            self.new_config["providers"]["google"] = {
+                "type": "litellm",
+                "description": "Google Gemini models via LiteLLM",
+                "enabled": True,
+                "config": {},
+                "models": {},
+            }
+
+        # Add models
+        for model in models:
+            model_name = model.replace("google/", "")
+            self.new_config["providers"]["google"]["models"][model] = {
+                "max_tokens": 1000000,
+                "temperature_range": [0.0, 2.0],
+                "supports_tools": True,
+            }
+
+            # Add cost config
+            if "pro" in model:
+                self.new_config["cost_config"]["rates"][model] = {
+                    "input": 3.50,
+                    "output": 10.50,
+                }
+            elif "flash" in model:
+                self.new_config["cost_config"]["rates"][model] = {
+                    "input": 0.075,
+                    "output": 0.30,
+                }
+
+        self.configured_providers.append("Google AI")
+        self.configured_models.extend(models)
+
+    def _configure_deepseek(self, api_key: str, models: List[str]) -> None:
+        """Configure DeepSeek in the new config."""
+        self.new_config["api_keys"]["DEEPSEEK_API_KEY"] = api_key
+        self.new_config["provider_configs"]["deepseek"] = {
+            "base_url": "https://api.deepseek.com",
+        }
+
+        # Add DeepSeek provider if not exists
+        if "deepseek" not in self.new_config["providers"]:
+            self.new_config["providers"]["deepseek"] = {
+                "type": "litellm",
+                "description": "DeepSeek models via LiteLLM",
+                "enabled": True,
+                "config": {},
+                "models": {},
+            }
+
+        # Add models
+        for model in models:
+            model_name = model.replace("deepseek/", "")
+            self.new_config["providers"]["deepseek"]["models"][model] = {
+                "max_tokens": 64000,
+                "temperature_range": [0.0, 2.0],
+                "supports_functions": True,
+            }
+
+            # Add cost config
+            self.new_config["cost_config"]["rates"][model] = {
+                "input": 0.28,
+                "output": 0.42,
+            }
+
+        self.configured_providers.append("DeepSeek")
+        self.configured_models.extend(models)
+
+    def _configure_local_models(self) -> None:
+        """Configure local models (Ollama)."""
+        use_local = Confirm.ask(
+            "Would you like to use local models (Ollama)?",
+            default=False,
+        )
+
+        if not use_local:
+            return
+
+        # Test Ollama connection
+        try:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                transient=True,
+            ) as progress:
+                task = progress.add_task(
+                    "Testing Ollama connection...", total=None
+                )
+
+                # Try to list Ollama models via LiteLLM
+                provider = LiteLLMProvider()
+                models = provider.list_models()
+                
+                # Filter for Ollama models
+                ollama_models = [m for m in models if m.startswith("ollama/")]
+                
+                if ollama_models:
+                    progress.update(
+                        task,
+                        description=f"[green]✅ Success! Found {len(ollama_models)} Ollama models[/green]",
+                    )
+                    
+                    # Configure Ollama
+                    self.new_config["providers"]["ollama"] = {
+                        "type": "litellm",
+                        "description": "Ollama local models via LiteLLM",
+                        "enabled": True,
+                        "config": {
+                            "base_url": "http://localhost:11434",
+                            "timeout": 60,
+                        },
+                        "models": {},
+                    }
+                    
+                    # Add models
+                    for model in ollama_models:
+                        self.new_config["providers"]["ollama"]["models"][model] = {
+                            "max_tokens": 4096,
+                            "temperature_range": [0.0, 1.0],
+                        }
+                        
+                        # Add cost config (free for local models)
+                        self.new_config["cost_config"]["rates"][model] = {
+                            "input": 0.00,
+                            "output": 0.00,
+                        }
+                    
+                    self.configured_providers.append("Ollama")
+                    self.configured_models.extend(ollama_models)
+                    
+                    console.print(f"[green]Configured {len(ollama_models)} local models[/green]")
+                else:
+                    progress.update(
+                        task,
+                        description="[yellow]⚠️  Ollama is running but no models found[/yellow]",
+                    )
+                    console.print("[yellow]Make sure you have pulled some models with `ollama pull`[/yellow]")
+                    
+        except Exception as e:
+            console.print(f"[red]❌ Could not connect to Ollama: {e}[/red]")
+            console.print("[yellow]Make sure Ollama is installed and running on http://localhost:11434[/yellow]")
+
+    def _show_success_summary(self) -> None:
+        """Show success summary with configured providers and models."""
+        success_text = f"""
+        [bold green]Setup Complete! 🎉[/bold green]
+
+        You now have access to:
+        • {len(self.configured_providers)} providers
+        • {len(self.configured_models)} models
+        • Multi-agent orchestration ready!
+
+        Try: [cyan]omni demo[/cyan]
+        Or: [cyan]omni orchestrate "your goal here"[/cyan]
+        """
+        console.print(Panel(success_text, border_style="green"))
+        
+        # Show configured providers table
+        if self.configured_providers:
+            table = Table(title="Configured Providers", show_header=True, header_style="bold")
+            table.add_column("Provider", style="cyan")
+            table.add_column("Models", style="green")
+            table.add_column("Status", style="bold")
+            
+            # Group models by provider
+            provider_models: Dict[str, List[str]] = {}
+            for model in self.configured_models:
+                provider = model.split("/")[0]
+                if provider not in provider_models:
+                    provider_models[provider] = []
+                provider_models[provider].append(model)
+            
+            for provider in self.configured_providers:
+                provider_lower = provider.lower().replace(" ", "")
+                models = provider_models.get(provider_lower, [])
+                table.add_row(
+                    provider,
+                    f"{len(models)} models",
+                    "✅"
+                )
+            
+            console.print(table)
+        
+        console.print(f"\n[dim]Configuration saved to: {self.config_path}[/dim]")
+
+    async def run(self) -> bool:
+        """Run the interactive setup wizard."""
+        try:
+            # Show welcome
+            self._show_welcome()
+            
+            # Load existing config
+            has_existing = self._load_existing_config()
+            
+            if has_existing and self.existing_config:
+                # Offer to update existing config
+                update = Confirm.ask(
+                    "Found existing configuration. Update it?",
+                    default=True,
+                )
+                if not update:
+                    console.print("[yellow]Setup cancelled[/yellow]")
+                    return False
+            
+            # Configure OpenAI
+            openai_key = self._ask_for_api_key("OpenAI", "OPENAI_API_KEY")
+            if openai_key:
+                success, models = await self._test_openai_connection(openai_key)
+                if success:
+                    self._configure_openai(openai_key, models)
+                else:
+                    retry = Confirm.ask(
+                        "Connection failed. Try again with a different key?",
+                        default=False,
+                    )
+                    if retry:
+                        openai_key = self._ask_for_api_key("OpenAI", "OPENAI_API_KEY")
+                        if openai_key:
+                            success, models = await self._test_openai_connection(openai_key)
+                            if success:
+                                self._configure_openai(openai_key, models)
+            
+            # Configure Anthropic
+            anthropic_key = self._ask_for_api_key("Anthropic", "ANTHROPIC_API_KEY")
+            if anthropic_key:
+                success, models = await self._test_anthropic_connection(anthropic_key)
+                if success:
+                    self._configure_anthropic(anthropic_key, models)
+                else:
+                    retry = Confirm.ask(
+                        "Connection failed. Try again with a different key?",
+                        default=False,
+                    )
+                    if retry:
+                        anthropic_key = self._ask_for_api_key("Anthropic", "ANTHROPIC_API_KEY")
+                        if anthropic_key:
+                            success, models = await self._test_anthropic_connection(anthropic_key)
+                            if success:
+                                self._configure_anthropic(anthropic_key, models)
+            
+            # Configure Google AI
+            google_key = self._ask_for_api_key("Google AI", "GOOGLE_API_KEY")
+            if google_key:
+                success, models = await self._test_google_connection(google_key)
+                if success:
+                    self._configure_google(google_key, models)
+                else:
+                    retry = Confirm.ask(
+                        "Connection failed. Try again with a different key?",
+                        default=False,
+                    )
+                    if retry:
+                        google_key = self._ask_for_api_key("Google AI", "GOOGLE_API_KEY")
+                        if google_key:
+                            success, models = await self._test_google_connection(google_key)
+                            if success:
+                                self._configure_google(google_key, models)
+            
+            # Configure DeepSeek
+            deepseek_key = self._ask_for_api_key("DeepSeek", "DEEPSEEK_API_KEY")
+            if deepseek_key:
+                success, models = await self._test_deepseek_connection(deepseek_key)
+                if success:
+                    self._configure_deepseek(deepseek_key, models)
+                else:
+                    retry = Confirm.ask(
+                        "Connection failed. Try again with a different key?",
+                        default=False,
+                    )
+                    if retry:
+                        deepseek_key = self._ask_for_api_key("DeepSeek", "DEEPSEEK_API_KEY")
+                        if deepseek_key:
+                            success, models = await self._test_deepseek_connection(deepseek_key)
+                            if success:
+                                self._configure_deepseek(deepseek_key, models)
+            
+            # Configure local models
+            self._configure_local_models()
+            
+            # Set defaults if we have providers
+            if self.configured_providers:
+                # Set default provider to first configured provider
+                first_provider = self.configured_providers[0].lower().replace(" ", "")
+                self.new_config["defaults"] = {
+                    "provider": first_provider,
+                    "model": self.configured_models[0] if self.configured_models else "openai/gpt-3.5-turbo",
+                    "temperature": 0.7,
+                    "max_tokens": 1000,
+                    "timeout": 30,
+                }
+                
+                # Set budget defaults
+                self.new_config["budget"] = {
+                    "daily_limit": 10.00,
+                    "per_session_limit": 2.00,
+                    "warning_threshold": 0.8,
+                    "hard_limit": True,
+                }
+                
+                # Set rate limiting defaults
+                self.new_config["rate_limiting"] = {
+                    "enabled": True,
+                    "requests_per_minute": 60,
+                    "tokens_per_minute": 150000,
+                    "burst_capacity": 10,
+                }
+            
+            # Save configuration
+            if self.configured_providers:
+                success = self._save_config()
+                if success:
+                    self._show_success_summary()
+                    return True
+                else:
+                    console.print("[red]❌ Setup failed to save configuration[/red]")
+                    return False
+            else:
+                console.print("[yellow]⚠️  No providers configured. Setup cancelled.[/yellow]")
+                return False
+                
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Setup cancelled by user[/yellow]")
+            return False
+        except Exception as e:
+            console.print(f"[red]❌ Setup failed with error: {e}[/red]")
+            return False
+
+
+@click.command()
+def setup() -> None:
+    """Interactive setup wizard for Omni-LLM."""
+    wizard = SetupWizard()
+    success = asyncio.run(wizard.run())
+    
+    if not success:
+        sys.exit(1)

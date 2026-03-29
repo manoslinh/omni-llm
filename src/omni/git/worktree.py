@@ -6,13 +6,12 @@ Each task gets its own worktree with a dedicated branch, allowing parallel
 agents to work without filesystem conflicts.
 """
 
-import asyncio
 import logging
 import shutil
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from types import TracebackType
 
 from .repository import GitRepository
 
@@ -190,7 +189,7 @@ class WorktreeManager:
                 except RuntimeError:
                     # Neither main nor master exists locally
                     pass
-            
+
             # Check if the branch exists locally now
             try:
                 await self._repo._run_git(["show-ref", "--verify", f"refs/heads/{base_branch}"])
@@ -513,7 +512,12 @@ class WorktreeEnv:
             self.path = None
             return None
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """
         Cleanup on exit.
 

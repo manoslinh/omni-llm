@@ -5,9 +5,8 @@ Example: Single Agent with Smart Model Routing
 This example demonstrates how the Model Router automatically selects
 the most appropriate model for different types of tasks based on:
 1. Task type and complexity
-2. Required capabilities
-3. Cost constraints
-4. Quality requirements
+2. Cost constraints
+3. Health monitoring and circuit breaking
 """
 
 import asyncio
@@ -17,12 +16,15 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from omni.router import ModelRouter
-from omni.router.strategy import (
+from omni.router import (
     CostOptimizedStrategy,
-    RoutingStrategy,
+    ModelRouter,
+    RouterConfig,
+    RoutingContext,
+    TaskType,
 )
-from omni.task.models import Task, TaskType, ComplexityEstimate
+from omni.router.budget import BudgetConfig, BudgetTracker
+from omni.router.health import CircuitBreaker, HealthConfig, HealthMonitor
 
 
 async def demonstrate_basic_routing():
@@ -31,303 +33,232 @@ async def demonstrate_basic_routing():
     print("=" * 60)
 
     # Create router with cost-optimized strategy
-    router = ModelRouter(strategy=CostOptimizedStrategy())
+    config = RouterConfig()
+    router = ModelRouter(config)
+
+    # Register a cost-optimized strategy
+    strategy = CostOptimizedStrategy()
+    router.register_strategy("cost_optimized", strategy)
 
     # Example 1: Simple formatting task
     print("\n1. Simple Formatting Task")
     print("-" * 40)
 
-    format_task = Task(
-        description="Format Python code according to PEP 8 guidelines",
-        task_type=TaskType.CONFIGURATION,
-        complexity=ComplexityEstimate(
-            code_complexity=1,
-            integration_complexity=1,
-            testing_complexity=1,
-            unknown_factor=1,
-            reasoning="Simple formatting task",
-        ),
+    context = RoutingContext(
+        task_type=TaskType.CODING,
+        file_count=1,
+        complexity=0.2,
     )
 
-    selected_model = await router.select_model(format_task)
-    print(f"   Task: {format_task.description[:50]}...")
-    print(f"   Type: {format_task.task_type.value}")
-    print(f"   Selected model: {selected_model}")
-    print(f"   Reasoning: {router.get_last_selection_reasoning()}")
+    try:
+        selection = router.select_model(
+            task_type=TaskType.CODING,
+            context=context,
+            strategy_name="cost_optimized",
+        )
+        print(f"   Task type: {TaskType.CODING.value}")
+        print(f"   Selected model: {selection.model_id}")
+        print(f"   Reason: {selection.reason}")
+        print(f"   Estimated cost: ${selection.estimated_cost.total_cost_usd:.6f}")
+        print(f"   Confidence: {selection.confidence:.2f}")
+    except Exception as e:
+        print(f"   ⚠️  Could not select model: {e}")
 
     # Example 2: Code generation task
     print("\n2. Code Generation Task")
     print("-" * 40)
 
-    code_task = Task(
-        description="Implement user authentication API with JWT tokens",
-        task_type=TaskType.CODE_GENERATION,
-        complexity=ComplexityEstimate(
-            code_complexity=5,
-            integration_complexity=4,
-            testing_complexity=3,
-            unknown_factor=2,
-            reasoning="Standard API implementation",
-        ),
+    context = RoutingContext(
+        task_type=TaskType.CODING,
+        file_count=5,
+        complexity=0.6,
     )
 
-    selected_model = await router.select_model(code_task)
-    print(f"   Task: {code_task.description[:50]}...")
-    print(f"   Type: {code_task.task_type.value}")
-    print(f"   Selected model: {selected_model}")
-    print(f"   Reasoning: {router.get_last_selection_reasoning()}")
+    try:
+        selection = router.select_model(
+            task_type=TaskType.CODING,
+            context=context,
+            strategy_name="cost_optimized",
+        )
+        print(f"   Task type: {TaskType.CODING.value}")
+        print(f"   Selected model: {selection.model_id}")
+        print(f"   Reason: {selection.reason}")
+        print(f"   Estimated cost: ${selection.estimated_cost.total_cost_usd:.6f}")
+        print(f"   Confidence: {selection.confidence:.2f}")
+    except Exception as e:
+        print(f"   ⚠️  Could not select model: {e}")
 
-    # Example 3: Complex architecture task
+    # Example 3: Architecture/analysis task
     print("\n3. Architecture Design Task")
     print("-" * 40)
 
-    arch_task = Task(
-        description="Design microservices architecture for scalable e-commerce platform",
-        task_type=TaskType.ANALYSIS,
-        complexity=ComplexityEstimate(
-            code_complexity=8,
-            integration_complexity=9,
-            testing_complexity=7,
-            unknown_factor=8,
-            reasoning="Complex architectural design",
-        ),
+    context = RoutingContext(
+        task_type=TaskType.ARCHITECTURE,
+        file_count=10,
+        complexity=0.9,
     )
 
-    selected_model = await router.select_model(arch_task)
-    print(f"   Task: {arch_task.description[:50]}...")
-    print(f"   Type: {arch_task.task_type.value}")
-    print(f"   Selected model: {selected_model}")
-    print(f"   Reasoning: {router.get_last_selection_reasoning()}")
+    try:
+        selection = router.select_model(
+            task_type=TaskType.ARCHITECTURE,
+            context=context,
+            strategy_name="cost_optimized",
+        )
+        print(f"   Task type: {TaskType.ARCHITECTURE.value}")
+        print(f"   Selected model: {selection.model_id}")
+        print(f"   Reason: {selection.reason}")
+        print(f"   Estimated cost: ${selection.estimated_cost.total_cost_usd:.6f}")
+        print(f"   Confidence: {selection.confidence:.2f}")
+    except Exception as e:
+        print(f"   ⚠️  Could not select model: {e}")
 
     return router
 
 
-async def demonstrate_strategy_comparison():
-    """Compare different routing strategies."""
-    print("\n\n🔍 Comparing Routing Strategies")
+async def demonstrate_model_ranking():
+    """Demonstrate ranking all candidate models for a task."""
+    print("\n\n🔍 Model Ranking for Task")
     print("=" * 60)
 
-    task = Task(
-        description="Implement real-time chat feature with WebSockets",
-        task_type=TaskType.CODE_GENERATION,
-        complexity=ComplexityEstimate(
-            code_complexity=6,
-            integration_complexity=7,
-            testing_complexity=5,
-            unknown_factor=4,
-            reasoning="Real-time feature with integration complexity",
-        ),
+    config = RouterConfig()
+    router = ModelRouter(config)
+    strategy = CostOptimizedStrategy()
+    router.register_strategy("cost_optimized", strategy)
+
+    context = RoutingContext(
+        task_type=TaskType.CODING,
+        file_count=3,
+        complexity=0.5,
     )
 
-    strategies = [
-        ("Cost-Optimized", CostOptimizedStrategy()),
-        # Note: QualityOptimizedStrategy and BalancedStrategy would be implemented
-        # in a real deployment. Using CostOptimizedStrategy for demo.
-        ("Cost-Optimized (Alternative)", CostOptimizedStrategy()),
-    ]
-
-    for strategy_name, strategy in strategies:
-        print(f"\n{strategy_name} Strategy:")
-        print("-" * 30)
-
-        router = ModelRouter(strategy=strategy)
-        selected_model = await router.select_model(task)
-
-        # Get cost estimate
-        cost_estimate = await router.estimate_cost(task, selected_model)
-
-        print(f"   Selected model: {selected_model}")
-        print(f"   Estimated cost: ${cost_estimate:.6f}")
-        print(f"   Reasoning: {router.get_last_selection_reasoning()[:80]}...")
-
-
-async def demonstrate_budget_constraints():
-    """Demonstrate routing with budget constraints."""
-    print("\n\n💰 Routing with Budget Constraints")
-    print("=" * 60)
-
-    # Create router with budget constraint
-    from omni.router.budget import BudgetConstraint
-
-    budget = BudgetConstraint(max_cost=0.001)  # $0.001 maximum
-    router = ModelRouter(constraints=[budget])
-
-    tasks = [
-        Task(
-            description="Write comprehensive unit tests for authentication module",
-            task_type=TaskType.TESTING,
-            complexity=ComplexityEstimate(
-                code_complexity=3,
-                integration_complexity=2,
-                testing_complexity=4,
-                unknown_factor=2,
-                reasoning="Test writing with moderate complexity",
-            ),
-        ),
-        Task(
-            description="Perform security audit of payment processing code",
-            task_type=TaskType.SECURITY,
-            complexity=ComplexityEstimate(
-                code_complexity=7,
-                integration_complexity=6,
-                testing_complexity=8,
-                unknown_factor=5,
-                reasoning="Critical security audit",
-            ),
-        ),
-    ]
-
-    for i, task in enumerate(tasks, 1):
-        print(f"\n{i}. {task.task_type.value.title()} Task (Budget: ${budget.max_cost})")
-        print("-" * 50)
-
-        try:
-            selected_model = await router.select_model(task)
-            cost_estimate = await router.estimate_cost(task, selected_model)
-
-            print(f"   Task: {task.description[:60]}...")
-            print(f"   Selected model: {selected_model}")
-            print(f"   Estimated cost: ${cost_estimate:.6f}")
-
-            if cost_estimate > budget.max_cost:
-                print("   ⚠️  Warning: Cost exceeds budget, but router found best option")
-
-        except Exception as e:
-            print(f"   ❌ Error: {e}")
-            print(f"   Reason: No model found within budget constraints")
-
-
-async def demonstrate_fallback_chain():
-    """Demonstrate automatic fallback when primary model fails."""
-    print("\n\n🔄 Automatic Fallback Chain")
-    print("=" * 60)
-
-    from omni.router.models import RoutingDecision
-
-    router = ModelRouter()
-
-    # Simulate a task that might fail with first choice
-    task = Task(
-        description="Generate complex data visualization with interactive elements",
-        task_type=TaskType.CODE_GENERATION,
-        complexity=ComplexityEstimate(
-            code_complexity=7,
-            integration_complexity=6,
-            testing_complexity=5,
-            unknown_factor=6,
-            reasoning="Complex visualization with integration needs",
-        ),
-    )
-
-    print("Primary selection:")
-    primary_model = await router.select_model(task)
-    print(f"   Primary model: {primary_model}")
-
-    # Simulate failure and get fallback
-    print("\nSimulating primary model failure...")
-    fallback_chain = router.get_fallback_chain(task, primary_model)
-
-    print(f"   Fallback chain ({len(fallback_chain)} models):")
-    for i, fallback in enumerate(fallback_chain, 1):
-        cost = await router.estimate_cost(task, fallback.model_id)
-        print(f"   {i}. {fallback.model_id} (${cost:.6f})")
-        print(f"      Reason: {fallback.reasoning}")
-
-
-async def demonstrate_real_time_adaptation():
-    """Demonstrate real-time routing adaptation based on performance."""
-    print("\n\n📊 Real-time Routing Adaptation")
-    print("=" * 60)
-
-    from omni.router.health import ModelHealthMonitor
-
-    # Create health monitor to track model performance
-    monitor = ModelHealthMonitor()
-
-    # Simulate some performance data
-    performance_data = [
-        ("openai/gpt-4", 0.95, 2.5, 0.00003),  # success_rate, avg_latency_sec, avg_cost
-        ("anthropic/claude-3-haiku", 0.92, 1.8, 0.00001),
-        ("deepseek/deepseek-chat", 0.88, 1.5, 0.000005),
-    ]
-
-    for model_id, success_rate, latency, cost in performance_data:
-        monitor.record_performance(
-            model_id=model_id,
-            success_rate=success_rate,
-            avg_latency=latency,
-            avg_cost=cost,
-            task_type="code_generation",
+    try:
+        ranked = router.rank_models(
+            task_type=TaskType.CODING,
+            context=context,
+            strategy_name="cost_optimized",
         )
 
-    # Create router with adaptive strategy
-    # Note: AdaptiveStrategy would be implemented in a real deployment
-    # Using CostOptimizedStrategy for demo
-    from omni.router.strategy import RoutingStrategy
-    
-    class AdaptiveStrategy(RoutingStrategy):
-        """Demo adaptive strategy for illustration."""
-        def __init__(self, health_monitor=None, update_interval=300):
-            self.health_monitor = health_monitor
-            self.update_interval = update_interval
-            
-        def select_model(self, task, available_models, context=None):
-            # Simplified demo implementation
-            return available_models[0] if available_models else None
+        print(f"   Ranked models for {TaskType.CODING.value} task:")
+        for i, model in enumerate(ranked[:5], 1):
+            print(
+                f"   {i}. {model.model_id:25} "
+                f"score={model.score:.3f}  "
+                f"cost=${model.cost_estimate.total_cost_usd:.6f}  "
+                f"quality={model.quality_estimate:.2f}"
+            )
+    except Exception as e:
+        print(f"   ⚠️  Could not rank models: {e}")
 
-    adaptive_router = ModelRouter(
-        strategy=AdaptiveStrategy(health_monitor=monitor, update_interval=300)
+
+async def demonstrate_budget_tracking():
+    """Demonstrate budget tracking and enforcement."""
+    print("\n\n💰 Budget Tracking")
+    print("=" * 60)
+
+    # Create a budget tracker with limits
+    budget_config = BudgetConfig(
+        daily_limit=1.0,  # $1.00 per day
+        per_session_limit=0.10,  # $0.10 per session
     )
+    tracker = BudgetTracker(config=budget_config, session_id="demo-session")
 
-    task = Task(
-        description="Refactor database layer to use connection pooling",
-        task_type=TaskType.CODE_GENERATION,
+    print(f"   Daily limit: ${budget_config.daily_limit:.2f}")
+    print(f"   Session limit: ${budget_config.per_session_limit:.2f}")
+
+    # Simulate some spending
+    for _i, amount in enumerate([0.01, 0.02, 0.005], 1):
+        tracker.track_spending(amount)
+        status = tracker.get_budget_status()
+        print(f"\n   After ${amount:.3f} spend:")
+        print(f"     Session spent: ${status['session']['spent']:.4f}")
+        print(f"     Session remaining: ${status['session']['remaining']:.4f}")
+        print(f"     Daily spent: ${status['daily']['spent']:.4f}")
+
+    # Check budget before a task
+    allowed, reason = tracker.check_budget(estimated_cost=0.05)
+    print(f"\n   Budget check for $0.05 task: {'✅ Allowed' if allowed else '❌ Denied'}")
+    if not allowed:
+        print(f"   Reason: {reason}")
+
+    # Get warnings
+    warnings = tracker.get_warnings()
+    if warnings:
+        print("\n   ⚠️  Budget warnings:")
+        for w in warnings:
+            print(f"     - {w}")
+
+
+async def demonstrate_health_monitoring():
+    """Demonstrate health monitoring and circuit breaking."""
+    print("\n\n🏥 Health Monitoring & Circuit Breaker")
+    print("=" * 60)
+
+    # Create health monitor
+    health_config = HealthConfig(
+        window_size=50,
+        error_rate_threshold=0.5,
+        latency_threshold_seconds=10.0,
     )
+    monitor = HealthMonitor(config=health_config)
 
-    print("Current performance-aware routing:")
-    selected_model = await adaptive_router.select_model(task)
-    print(f"   Selected model: {selected_model}")
-    print(f"   Reasoning: {adaptive_router.get_last_selection_reasoning()}")
+    # Simulate provider call results
+    provider_results = [
+        ("openai/gpt-4", 1.2, True),
+        ("openai/gpt-4", 1.5, True),
+        ("openai/gpt-4", 2.0, False),
+        ("anthropic/claude-3-haiku", 0.8, True),
+        ("anthropic/claude-3-haiku", 1.0, True),
+        ("deepseek/deepseek-chat", 0.5, True),
+        ("deepseek/deepseek-chat", 0.6, True),
+    ]
 
-    # Show performance metrics
-    print("\nModel performance metrics:")
-    for model_id, success_rate, latency, cost in performance_data:
-        health = monitor.get_model_health(model_id, "code_generation")
-        if health:
-            print(f"   {model_id}:")
-            print(f"      Success rate: {health.success_rate:.1%}")
-            print(f"      Avg latency: {health.avg_latency:.1f}s")
-            print(f"      Avg cost: ${health.avg_cost:.6f}")
-            print(f"      Health score: {health.health_score:.2f}/10")
+    for provider_id, latency, success in provider_results:
+        monitor.record_call(provider_id, latency=latency, success=success)
+
+    # Show health metrics
+    print("   Provider health metrics:")
+    for provider_id in ["openai/gpt-4", "anthropic/claude-3-haiku", "deepseek/deepseek-chat"]:
+        metrics = monitor.get_metrics(provider_id)
+        status = "✅" if metrics.is_healthy else "❌"
+        print(
+            f"   {status} {provider_id:30} "
+            f"success_rate={metrics.success_rate:.1%}  "
+            f"avg_latency={metrics.avg_latency:.2f}s  "
+            f"health_score={metrics.health_score:.2f}"
+        )
+
+    # Demonstrate circuit breaker
+    print("\n   Circuit Breaker demo:")
+    breaker = CircuitBreaker("demo-provider", config=health_config)
+    print(f"   Initial state: {breaker.state.value}")
+    print(f"   Available: {breaker.is_available}")
+
+    # Simulate failures
+    for i in range(6):
+        breaker.record_failure(Exception(f"Simulated failure {i+1}"))
+        print(
+            f"   After failure {i+1}: "
+            f"state={breaker.state.value}, "
+            f"available={breaker.is_available}"
+        )
 
 
 async def main():
     """Run all demonstrations."""
     try:
         # Basic routing examples
-        router = await demonstrate_basic_routing()
+        await demonstrate_basic_routing()
 
-        # Strategy comparison
-        await demonstrate_strategy_comparison()
+        # Model ranking
+        await demonstrate_model_ranking()
 
-        # Budget constraints
-        await demonstrate_budget_constraints()
+        # Budget tracking
+        await demonstrate_budget_tracking()
 
-        # Fallback chain
-        await demonstrate_fallback_chain()
+        # Health monitoring
+        await demonstrate_health_monitoring()
 
-        # Real-time adaptation
-        await demonstrate_real_time_adaptation()
-
-        # Show router statistics
-        print("\n\n📈 Router Statistics")
-        print("=" * 60)
-        stats = router.get_statistics()
-        print(f"   Total routing decisions: {stats.total_decisions}")
-        print(f"   Average decision time: {stats.avg_decision_time_ms:.1f}ms")
-        print(f"   Models available: {stats.models_available}")
-
-        print("\n✅ Demonstration completed successfully!")
+        print("\n\n✅ Demonstration completed successfully!")
 
     except ImportError as e:
         print(f"\n❌ Import error: {e}")
@@ -337,6 +268,7 @@ async def main():
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

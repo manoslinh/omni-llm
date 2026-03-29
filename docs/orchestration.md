@@ -10,11 +10,12 @@ Omni-LLM's orchestration system enables intelligent coordination of multiple AI 
 The Model Router is the brain of the orchestration system, responsible for selecting the most appropriate model for each task based on multiple factors:
 
 ```python
-from omni.router import ModelRouter
-from omni.router.strategy import CostOptimizedStrategy
+from omni.router import CostOptimizedStrategy, ModelRouter, RouterConfig
 
 # Create router with cost-optimized strategy
-router = ModelRouter(strategy=CostOptimizedStrategy())
+config = RouterConfig()
+router = ModelRouter(config)
+router.register_strategy("cost_optimized", CostOptimizedStrategy())
 
 # Router considers:
 # 1. Task type (code generation, analysis, review, etc.)
@@ -69,34 +70,12 @@ The coordination engine manages multiple agents working together:
 
 ```python
 from omni.coordination import CoordinationEngine
-from omni.coordination.matcher import AgentMatcher
 
 coordinator = CoordinationEngine()
 
-# Agent profiles define capabilities and costs
-agents = [
-    AgentProfile(
-        agent_id="intern",
-        model_id="mimo/mimo-v2-flash",
-        capabilities=["formatting", "simple_tasks"],
-        cost_per_token=0.000001
-    ),
-    AgentProfile(
-        agent_id="coder", 
-        model_id="deepseek/deepseek-chat",
-        capabilities=["code_generation", "debugging"],
-        cost_per_token=0.000002
-    ),
-    AgentProfile(
-        agent_id="thinker",
-        model_id="mimo/mimo-v2-pro",
-        capabilities=["architecture", "complex_reasoning"],
-        cost_per_token=0.000005
-    )
-]
-
-# Match tasks to optimal agents
-assignments = coordinator.assign_tasks(task_graph, agents)
+# Coordinate task execution
+# (Agent matching and assignment handled internally)
+result = await coordinator.coordinate(task_graph)
 ```
 
 **Coordination Patterns:**
@@ -185,24 +164,20 @@ steps:
 ## Example: Complete Orchestration Pipeline
 
 ```python
-from omni.orchestration import OrchestrationPipeline
+from omni.orchestration import WorkflowEngine
 
-pipeline = OrchestrationPipeline()
+engine = WorkflowEngine()
 
-# Complete end-to-end orchestration
-result = pipeline.execute(
-    goal="Add user authentication to the web application",
-    constraints={
-        "budget": 0.50,  # $0.50 maximum
-        "timeout": 3600,  # 1 hour maximum
-        "quality": "high"  # Quality requirement
-    }
+# Load and execute a workflow template
+template = engine.load_template("path/to/workflow.yaml")
+result = engine.execute(
+    template,
+    variables={"feature_name": "user-authentication"}
 )
 
 print(f"Success: {result.success}")
-print(f"Cost: ${result.cost:.4f}")
-print(f"Time: {result.duration:.1f}s")
-print(f"Agents used: {result.agents_used}")
+print(f"Cost: ${result.total_cost:.4f}")
+print(f"Summary: {result.summary}")
 ```
 
 ## Monitoring and Observability
@@ -210,26 +185,10 @@ print(f"Agents used: {result.agents_used}")
 The orchestration system provides comprehensive observability:
 
 ```python
-from omni.observability import OrchestrationDashboard
+from omni.observability import metrics
 
-dashboard = OrchestrationDashboard()
-
-# Real-time monitoring
-dashboard.show_live_view()
-
-# Historical analysis
-report = dashboard.generate_report(
-    start_time="2024-01-01",
-    end_time="2024-01-31",
-    metrics=["cost", "success_rate", "avg_duration"]
-)
-
-# Performance alerts
-dashboard.set_alert(
-    metric="cost_per_task",
-    threshold=0.10,
-    action="notify"  # Send notification when threshold exceeded
-)
+# Track costs and success rates per provider
+# (Dashboard UI available via 'omni status' CLI command)
 ```
 
 ## Best Practices
@@ -281,36 +240,34 @@ dashboard.set_alert(
 
 ## Advanced Topics
 
-### Dynamic Re-routing
-The system can dynamically re-route tasks based on real-time performance:
+### Health Monitoring
+Track provider health with circuit breakers and sliding-window metrics:
 
 ```python
-# Enable adaptive routing
-router.enable_adaptive_routing(
-    metrics=["success_rate", "latency", "cost"],
-    update_interval=300  # Re-evaluate every 5 minutes
-)
+from omni.router.health import HealthConfig, HealthManager
+
+manager = HealthManager(HealthConfig(
+    error_rate_threshold=0.5,
+    recovery_timeout_seconds=60.0,
+))
+manager.register_provider("openai/gpt-4")
+
+# Providers automatically circuit-break on repeated failures
+# and recover via HALF_OPEN probes
 ```
 
-### Cross-Agent Learning
-Agents can learn from each other's successes and failures:
+### Budget Enforcement
+Enforce per-session and per-day spending limits:
 
 ```python
-# Enable knowledge sharing
-coordinator.enable_knowledge_sharing(
-    sharing_strategy="success_patterns",
-    update_frequency="daily"
+from omni.router.budget import BudgetConfig, BudgetTracker
+
+tracker = BudgetTracker(
+    config=BudgetConfig(daily_limit=5.0, per_session_limit=1.0),
+    session_id="my-session",
 )
-```
 
-### Predictive Scaling
-Predict resource needs based on historical patterns:
-
-```python
-# Predictive scaling based on time of day/day of week
-scaler = PredictiveScaler()
-scaler.train_on_historical_data(historical_executions)
-predicted_load = scaler.predict("2024-02-01 14:00:00")
+allowed, reason = tracker.check_budget(estimated_cost=0.05)
 ```
 
 ## Conclusion

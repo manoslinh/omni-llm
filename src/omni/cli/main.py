@@ -17,10 +17,10 @@ from ..observability.cli import register_execute_command
 
 # Import orchestration modules for new commands
 try:
-    from ..orchestration import WorkflowEngine
-    from ..router import ModelRouter
     from ..coordination import CoordinationEngine
     from ..decomposition import TaskDecompositionEngine
+    from ..orchestration import WorkflowEngine
+    from ..router import ModelRouter
     ORCHESTRATION_AVAILABLE = True
 except ImportError:
     ORCHESTRATION_AVAILABLE = False
@@ -257,55 +257,55 @@ async def _orchestrate_async(goal: str, budget: float | None, timeout: int, max_
         click.echo("🚀 Multi-Agent Orchestration")
         click.echo("=" * 50)
         click.echo(f"Goal: {goal}")
-        
+
         if budget:
             click.echo(f"Budget: ${budget:.4f}")
         click.echo(f"Timeout: {timeout}s")
         click.echo(f"Max agents: {max_agents}")
-        
+
         if dry_run:
             click.echo("\n📋 Dry run mode - planning only")
-        
+
         # Create coordination engine
         coordinator = CoordinationEngine()
-        
+
         # Create decomposition engine
         decomposer = TaskDecompositionEngine()
-        
+
         click.echo("\n1. Decomposing goal into tasks...")
         task_graph = decomposer.decompose(goal)
         click.echo(f"   Created {task_graph.size} subtasks")
         click.echo(f"   Dependencies: {task_graph.dependency_count}")
-        
+
         click.echo("\n2. Coordinating agents...")
         result = await coordinator.coordinate(
             task_graph,
             budget=budget,
             max_agents=max_agents,
         )
-        
+
         click.echo(f"   Agents assigned: {result.total_agents_used}")
         click.echo(f"   Estimated cost: ${result.estimated_total_cost:.4f}")
         click.echo(f"   Estimated time: {result.estimated_total_time:.1f}s")
-        
+
         if dry_run:
             click.echo("\n✅ Dry run complete. Execution plan ready.")
             click.echo("   Run without --dry-run to execute.")
             return
-        
+
         click.echo("\n3. Executing workflow...")
         click.echo("   (Execution would happen here)")
         click.echo("\n✅ Orchestration planning complete!")
-        
+
         # Show execution plan
         plan = result.plan
         waves = plan.get_execution_order()
         click.echo(f"\n📋 Execution Plan ({len(waves)} waves):")
         for i, wave in enumerate(waves, 1):
             click.echo(f"   Wave {i}: {len(wave)} parallel steps")
-        
+
         await coordinator.close()
-        
+
     except Exception as e:
         click.echo(f"❌ Error: {e}", err=True)
         logger.exception("Orchestration failed")
@@ -316,33 +316,34 @@ async def _workflow_async(template: str, variables: str | None, var_file: str | 
     """Async implementation of the workflow command."""
     try:
         import json
-        from pathlib import Path
-        
+
         click.echo("📋 Workflow Execution")
         click.echo("=" * 50)
         click.echo(f"Template: {template}")
-        
-        # Parse variables
-        vars_dict = {}
+
+        # Parse variables — initialize both dicts upfront to avoid NameError
+        vars_dict: dict = {}
+        file_vars: dict = {}
+
         if variables:
             vars_dict = json.loads(variables)
             click.echo(f"Variables: {json.dumps(vars_dict, indent=2)}")
-        
+
         if var_file:
-            with open(var_file, 'r') as f:
+            with open(var_file) as f:
                 file_vars = json.load(f)
-                vars_dict.update(file_vars)
+            vars_dict.update(file_vars)
             click.echo(f"Variables from file: {json.dumps(file_vars, indent=2)}")
-        
+
         # Create workflow engine
         engine = WorkflowEngine()
-        
+
         click.echo("\n1. Loading template...")
         workflow_template = engine.load_template(template)
         click.echo(f"   Template: {workflow_template.name} v{workflow_template.version}")
         click.echo(f"   Description: {workflow_template.description}")
         click.echo(f"   Steps: {len(workflow_template.steps)}")
-        
+
         # Validate template
         click.echo("\n2. Validating template...")
         errors = engine.validate_template(workflow_template)
@@ -352,47 +353,43 @@ async def _workflow_async(template: str, variables: str | None, var_file: str | 
                 click.echo(f"   - {error}")
             sys.exit(1)
         click.echo("   ✅ Template is valid")
-        
-        # Create execution plan
+
+        # Substitute variables and show execution plan
         click.echo("\n3. Creating execution plan...")
-        plan = engine.create_execution_plan(workflow_template, vars_dict)
-        
-        # Show which steps will execute
-        active_steps = [s for s in workflow_template.steps if plan.is_step_active(s.name)]
-        click.echo(f"   Active steps: {len(active_steps)}")
-        
-        # Show execution order
-        waves = plan.get_execution_order()
+        substituted = workflow_template.substitute_variables(vars_dict)
+        click.echo(f"   Steps after substitution: {len(substituted.steps)}")
+
+        # Show execution order using template's own method
+        waves = substituted.get_execution_order()
         click.echo(f"   Execution waves: {len(waves)}")
-        
+
+        # Build step lookup
+        step_lookup = {s.name: s for s in substituted.steps}
+
         for i, wave in enumerate(waves, 1):
             click.echo(f"   Wave {i}: {len(wave)} steps")
             for step_id in wave[:3]:  # Show first 3 steps per wave
-                step = workflow_template.get_step(step_id)
+                step = step_lookup.get(step_id)
                 if step:
                     click.echo(f"     • {step.name} ({step.task_type})")
             if len(wave) > 3:
                 click.echo(f"     ... and {len(wave) - 3} more")
-        
+
         if dry_run:
             click.echo("\n✅ Dry run complete. Execution plan ready.")
             click.echo("   Run without --dry-run to execute.")
             return
-        
+
         click.echo("\n4. Executing workflow...")
-        click.echo("   (Execution would happen here)")
-        
-        # Simulate execution for demo
-        click.echo("\n🏗️  Simulating workflow execution...")
-        for i, wave in enumerate(waves, 1):
-            click.echo(f"   Executing wave {i}...")
-            for step_id in wave:
-                step = workflow_template.get_step(step_id)
-                if step:
-                    click.echo(f"     • {step.name}: ✅")
-        
+        result = engine.execute(workflow_template, vars_dict)
+
         click.echo("\n✅ Workflow execution complete!")
-        
+        click.echo(f"   Success: {result.success}")
+        click.echo(f"   Summary: {result.summary}")
+        if result.warnings:
+            for w in result.warnings:
+                click.echo(f"   ⚠️  {w}")
+
     except json.JSONDecodeError as e:
         click.echo(f"❌ Invalid JSON: {e}", err=True)
         sys.exit(1)
@@ -405,85 +402,89 @@ async def _workflow_async(template: str, variables: str | None, var_file: str | 
 async def _router_async(detailed: bool) -> None:
     """Async implementation of the router command."""
     try:
+        from ..router import (
+            CostOptimizedStrategy,
+            ModelRouter,
+            RouterConfig,
+            RoutingContext,
+            TaskType,
+        )
+
         click.echo("🔄 Model Router Status")
         click.echo("=" * 50)
-        
-        # Create router
-        router = ModelRouter()
-        
-        # Get router statistics
-        stats = router.get_statistics()
-        
-        click.echo(f"Router Strategy: {router.strategy.__class__.__name__}")
-        click.echo(f"Total Decisions: {stats.total_decisions}")
-        click.echo(f"Models Available: {stats.models_available}")
-        click.echo(f"Avg Decision Time: {stats.avg_decision_time_ms:.1f}ms")
-        
+
+        # Create router with cost-optimized strategy
+        config = RouterConfig()
+        router = ModelRouter(config)
+        strategy = CostOptimizedStrategy()
+        router.register_strategy("cost_optimized", strategy)
+
+        click.echo("Strategy: cost_optimized")
+        click.echo(f"Registered strategies: {list(config.strategies.keys())}")
+
         if detailed:
             click.echo("\n📊 Detailed Routing Information:")
             click.echo("-" * 40)
-            
+
             # Get available models (simplified for demo)
             try:
                 from ..models.litellm_provider import LiteLLMProvider
                 provider = LiteLLMProvider()
                 models = provider.list_models()
-                
+
                 # Group by provider
-                by_provider = {}
+                by_provider: dict[str, list[str]] = {}
                 for model in models:
                     provider_name = model.split("/")[0] if "/" in model else "unknown"
                     if provider_name not in by_provider:
                         by_provider[provider_name] = []
                     by_provider[provider_name].append(model)
-                
+
                 for provider_name, provider_models in sorted(by_provider.items()):
                     click.echo(f"\n{provider_name.upper()}:")
                     for model in sorted(provider_models)[:5]:  # Show first 5
                         click.echo(f"  • {model}")
                     if len(provider_models) > 5:
                         click.echo(f"  ... and {len(provider_models) - 5} more")
-                
+
                 await provider.close()
-                
+
             except ImportError:
                 click.echo("  (Detailed model list requires LiteLLM)")
-        
+
         # Show cost estimates for common tasks
         click.echo("\n💰 Cost Estimates for Common Tasks:")
         click.echo("-" * 40)
-        
-        from omni.task.models import Task, TaskType, ComplexityEstimate
-        
+
         sample_tasks = [
-            ("Simple formatting", TaskType.CONFIGURATION, 1),
-            ("Code generation", TaskType.CODE_GENERATION, 5),
-            ("Code review", TaskType.CODE_REVIEW, 4),
-            ("Architecture design", TaskType.ANALYSIS, 8),
+            ("Simple formatting", TaskType.CODING, 0.2),
+            ("Code generation", TaskType.CODING, 0.5),
+            ("Code review", TaskType.CODE_REVIEW, 0.4),
+            ("Architecture design", TaskType.ARCHITECTURE, 0.9),
         ]
-        
+
         for name, task_type, complexity in sample_tasks:
-            task = Task(
-                description=name,
+            context = RoutingContext(
                 task_type=task_type,
-                complexity=ComplexityEstimate(
-                    code_complexity=complexity,
-                    integration_complexity=complexity,
-                    testing_complexity=complexity,
-                    unknown_factor=complexity // 2,
-                    reasoning=f"Sample {name} task",
-                ),
+                file_count=3,
+                complexity=complexity,
             )
-            
+
             try:
-                model = await router.select_model(task)
-                cost = await router.estimate_cost(task, model)
-                click.echo(f"  {name:25} → {model:30} ${cost:.6f}")
-            except:
+                selection = router.select_model(
+                    task_type=task_type,
+                    context=context,
+                    strategy_name="cost_optimized",
+                )
+                click.echo(
+                    f"  {name:25} → {selection.model_id:30} "
+                    f"${selection.estimated_cost.total_cost_usd:.6f}"
+                )
+            except Exception:
                 click.echo(f"  {name:25} → (unavailable)")
-        
+
         click.echo("\n✅ Router status displayed successfully!")
-        
+
     except Exception as e:
         click.echo(f"❌ Error: {e}", err=True)
         logger.exception("Router status failed")

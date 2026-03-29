@@ -6,26 +6,26 @@ This example shows how to use the ResultIntegrator to merge results
 from multiple parallel tasks.
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from omni.orchestration.integrator import ResultIntegrator, OrchestrationResult
-from omni.orchestration.conflicts import ConflictResolver
+from omni.orchestration.integrator import ResultIntegrator
 from omni.task.models import TaskResult, TaskStatus
 
 
 def main():
     """Run a simple example of result integration."""
     print("=== ResultIntegrator Example (P2-19) ===\n")
-    
+
     # Create a result integrator
     integrator = ResultIntegrator()
-    
+
     # Example 1: Single successful task
     print("Example 1: Single successful task")
     print("-" * 40)
-    
+
     results = [
         TaskResult(
             task_id="task1",
@@ -41,20 +41,20 @@ def main():
             cost=0.0015,
         ),
     ]
-    
+
     result = integrator.integrate(results, "Add hello world print statement")
-    
+
     print(f"Success: {result.success}")
     print(f"Merged files: {list(result.merged_files.keys())}")
     print(f"Total cost: ${result.total_cost:.4f}")
     print(f"Commit message preview:\n{result.commit_message[:100]}...")
     print(f"Summary: {result.summary}")
     print()
-    
+
     # Example 2: Multiple tasks with partial success
     print("Example 2: Multiple tasks with partial success")
     print("-" * 40)
-    
+
     results = [
         TaskResult(
             task_id="task1",
@@ -91,9 +91,9 @@ def main():
             cost=0.0005,
         ),
     ]
-    
+
     result = integrator.integrate(results, "Add utility function with tests")
-    
+
     print(f"Success: {result.success}")
     print(f"Merged files: {list(result.merged_files.keys())}")
     print(f"Total cost: ${result.total_cost:.4f}")
@@ -101,15 +101,15 @@ def main():
     print(f"Warnings: {result.warnings}")
     print(f"Summary: {result.summary}")
     print()
-    
+
     # Example 3: Generate summary only
     print("Example 3: Generate summary only")
     print("-" * 40)
-    
+
     summary = integrator.generate_summary(results)
     print(summary)
     print()
-    
+
     print("=== Example Complete ===")
 
 

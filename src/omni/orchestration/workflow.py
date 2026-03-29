@@ -269,6 +269,16 @@ class WorkflowEngine:
         Simple implementation: checks if variable exists and is truthy.
         In a real implementation, this could use a proper expression evaluator.
 
+        SECURITY WARNING: This method uses Python's eval() function which poses
+        a security risk if condition strings come from untrusted sources.
+        The current implementation restricts the namespace to only the context
+        dictionary, but eval() can still execute arbitrary Python code.
+        
+        PHASE 3 MITIGATION PLAN: Replace eval() with ast.literal_eval() for
+        simple expressions or implement a restricted expression evaluator that
+        only supports safe operations (comparisons, logical operators, arithmetic).
+        This will eliminate the security risk while maintaining functionality.
+
         Args:
             condition: Condition string (e.g., "{variable} == 'value'")
             context: Execution context with variables
@@ -301,9 +311,10 @@ class WorkflowEngine:
 
         if not all_variables:
             # No variables, treat as Python expression
+            # SECURITY NOTE: eval() is used here - see Phase 3 mitigation plan in docstring
             try:
                 return bool(eval(condition, {}, context))
-            except:
+            except Exception:
                 logger.warning(f"Failed to evaluate condition: {condition}")
                 return False
 
@@ -336,9 +347,10 @@ class WorkflowEngine:
                 return False
 
         # Now evaluate with context available for bare variables
+        # SECURITY NOTE: eval() is used here - see Phase 3 mitigation plan in docstring
         try:
             return bool(eval(substituted_condition, {}, context))
-        except:
+        except Exception:
             logger.warning(
                 f"Failed to evaluate condition: {condition} (substituted: {substituted_condition})"
             )

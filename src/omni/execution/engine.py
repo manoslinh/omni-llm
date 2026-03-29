@@ -55,7 +55,7 @@ class ParallelExecutionEngine:
         self.callbacks = callbacks or ExecutionCallbacks()
         self.db = ExecutionDB(db_path)
         self.worktree_manager = worktree_manager
-        
+
         # Import here to avoid circular imports
         if policy is None:
             # Use scheduling module policies (from PR #46)
@@ -238,7 +238,7 @@ class ParallelExecutionEngine:
                 if self.worktree_manager:
                     # Import here to avoid circular imports
                     from ..git.worktree import WorktreeEnv
-                    
+
                     async with WorktreeEnv(
                         manager=self.worktree_manager,
                         task_id=task.task_id,

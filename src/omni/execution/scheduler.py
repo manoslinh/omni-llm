@@ -8,7 +8,12 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from ..scheduling.policies import FIFOPolicy, SchedulingContext, SchedulingPolicyBase, SchedulingScore
+from ..scheduling.policies import (
+    FIFOPolicy,
+    SchedulingContext,
+    SchedulingPolicyBase,
+    SchedulingScore,
+)
 from ..task.models import Task, TaskGraph, TaskStatus
 from .config import ExecutionConfig
 from .models import ExecutionAbortedError, TaskExecutionError, TaskFatalError
@@ -49,7 +54,6 @@ class Scheduler:
         self.failed_tasks: set[str] = set()
         self.skipped_tasks: set[str] = set()
         self.cancelled_tasks: set[str] = set()
-        self.scheduling_decisions: list[Any] = []  # For observability
 
         self.semaphore = asyncio.Semaphore(config.max_concurrent)
         self.should_cancel = False

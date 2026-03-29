@@ -76,7 +76,7 @@ class TestEngineWithWorktrees:
         # Create engine WITHOUT worktree manager
         engine = ParallelExecutionEngine(
             graph=graph,
-            executor=MockTaskExecutor(),
+            executor=MockTaskExecutor(success_rate=1.0),
             # No worktree_manager parameter
         )
 

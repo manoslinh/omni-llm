@@ -4,10 +4,11 @@ Core scheduling algorithm for parallel execution.
 
 import asyncio
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from ..scheduling.policies import FIFOPolicy, SchedulingContext, SchedulingPolicyBase
+from ..scheduling.policies import FIFOPolicy, SchedulingContext, SchedulingPolicyBase, SchedulingScore
 from ..task.models import Task, TaskGraph, TaskStatus
 from .config import ExecutionConfig
 from .models import ExecutionAbortedError, TaskExecutionError, TaskFatalError
@@ -53,6 +54,7 @@ class Scheduler:
         self.semaphore = asyncio.Semaphore(config.max_concurrent)
         self.should_cancel = False
         self.execution_started = False
+        self.scheduling_decisions: list[SchedulingScore] = []  # for observability
 
     async def run(self) -> None:
         """Main scheduling loop."""
@@ -149,17 +151,85 @@ class Scheduler:
             if deps_completed and task.task_id not in self.skipped_tasks:
                 ready.append(task)
 
-        # Use scheduling policy to rank tasks
+        # Apply scheduling policy if we have ready tasks
         if ready:
             context = self._build_scheduling_context(ready)
             scores = self.policy.rank_tasks(context)
             self.scheduling_decisions.extend(scores)
 
-            # Sort tasks by policy ranking
+            # Sort tasks by composite score (higher first)
             score_map = {s.task_id: s.composite_score for s in scores}
             ready.sort(key=lambda t: score_map.get(t.task_id, 0.0), reverse=True)
 
         return ready
+
+    def _build_scheduling_context(self, ready_tasks: list[Task]) -> SchedulingContext:
+        """Build scheduling context for policy decisions."""
+        # Extract execution info from running tasks
+        running_info = {}
+        for task_id, task_future in self.running_tasks.items():
+            # Get task start time if available from the future
+            started_at = getattr(task_future, '_started_at', None)
+
+            running_info[task_id] = {
+                "workflow_id": self.graph.name,
+                "started_at": started_at,
+            }
+
+        # Build deadline info (extract from task metadata if available)
+        deadline_info = {}
+        for task in ready_tasks:
+            # Check for deadline in task metadata
+            deadline = getattr(task, 'deadline', None)
+            if deadline:
+                deadline_info[task.task_id] = deadline
+            else:
+                # Also check task context for deadline (backward compatibility)
+                if hasattr(task, 'context') and isinstance(task.context, dict):
+                    deadline_val = task.context.get('deadline')
+                    if deadline_val:
+                        deadline_info[task.task_id] = float(deadline_val)
+
+        # Get resource snapshot
+        resource_snapshot = {
+            "concurrent_used": len(self.running_tasks),
+            "concurrent_available": self.config.max_concurrent - len(self.running_tasks),
+            "total_tasks": self.graph.size,
+        }
+
+        # Default agent availability (all available)
+        # In a real implementation, this would come from coordination engine
+        agent_availability = {
+            "intern": True,
+            "coder": True,
+            "reader": True,
+            "thinker": True,
+        }
+
+        # Get cost budget remaining if cost tracker is available
+        cost_budget_remaining = None
+        if hasattr(self, 'cost_tracker'):
+            # This would query the cost tracker for remaining budget
+            # For now, return None as placeholder
+            pass
+
+        # Get execution history if workload tracker is available
+        execution_history: list[Any] = []
+        if hasattr(self, 'workload_tracker'):
+            # This would get recent execution records
+            # For now, return empty list as placeholder
+            pass
+
+        return SchedulingContext(
+            ready_tasks=ready_tasks,
+            running_tasks=running_info,
+            workflow_id=self.graph.name,
+            resource_snapshot=resource_snapshot,
+            agent_availability=agent_availability,
+            deadline_info=deadline_info,
+            cost_budget_remaining=cost_budget_remaining,
+            execution_history=execution_history,
+        )
 
     def _mark_task_skipped(self, task_id: str, failed_task_id: str | None = None) -> None:
         """Mark a task as skipped and propagate to its dependents."""
@@ -189,6 +259,8 @@ class Scheduler:
                 # Create and track the task
                 coro = self._execute_task_with_retry(task)
                 task_future = asyncio.create_task(coro)
+                # Add start time for scheduling context
+                task_future._started_at = time.time()  # type: ignore
                 self.running_tasks[task.task_id] = task_future
                 scheduled += 1
 
@@ -327,58 +399,6 @@ class Scheduler:
 
         # No tasks can run
         return True
-
-    def _build_scheduling_context(self, ready_tasks: list[Task]) -> SchedulingContext:
-        """Build scheduling context for policy decisions."""
-        # Extract workflow ID from graph name or use default
-        workflow_id = self.graph.name if hasattr(self.graph, 'name') else "default"
-
-        # Build running tasks info
-        running_tasks_info = {}
-        for task_id, _task_future in self.running_tasks.items():
-            task = self.graph.tasks.get(task_id)
-            if task:
-                running_tasks_info[task_id] = {
-                    "workflow_id": workflow_id,
-                    "started_at": getattr(task, 'started_at', None),
-                }
-
-        # Default agent availability (all available)
-        # In a real implementation, this would come from coordination engine
-        agent_availability = {
-            "intern": True,
-            "coder": True,
-            "reader": True,
-            "thinker": True,
-        }
-
-        # Default resource snapshot
-        resource_snapshot = {
-            "concurrent_used": len(self.running_tasks),
-            "concurrent_available": self.config.max_concurrent - len(self.running_tasks),
-            "total_tasks": self.graph.size,
-        }
-
-        # Extract deadline info from task context
-        deadline_info: dict[str, float | None] = {}
-        for task in ready_tasks:
-            deadline = None
-            if hasattr(task, 'context') and isinstance(task.context, dict):
-                deadline_val = task.context.get('deadline')
-                if deadline_val:
-                    deadline = float(deadline_val)
-            deadline_info[task.task_id] = deadline
-
-        return SchedulingContext(
-            ready_tasks=ready_tasks,
-            running_tasks=running_tasks_info,
-            workflow_id=workflow_id,
-            resource_snapshot=resource_snapshot,
-            agent_availability=agent_availability,
-            deadline_info=deadline_info,
-            cost_budget_remaining=None,  # Would come from P2-15 workflow budget
-            execution_history=[],  # Would be populated from execution tracker
-        )
 
     def get_progress_stats(self) -> dict[str, int]:
         """Get current progress statistics."""

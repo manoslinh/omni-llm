@@ -37,6 +37,7 @@ class ParallelExecutionEngine:
         callbacks: ExecutionCallbacks | None = None,
         db_path: str | Path = "omni_executions.db",
         worktree_manager: Any | None = None,  # WorktreeManager from omni.git
+        policy: Any | None = None,  # SchedulingPolicyBase from scheduling module
     ) -> None:
         """
         Args:
@@ -46,6 +47,7 @@ class ParallelExecutionEngine:
             callbacks: Optional callbacks for execution events
             db_path: Path to SQLite database for persistence
             worktree_manager: Optional WorktreeManager for filesystem isolation
+            policy: Scheduling policy to use (defaults to FIFO for backward compatibility)
         """
         self.graph = graph
         self.executor = executor
@@ -53,6 +55,19 @@ class ParallelExecutionEngine:
         self.callbacks = callbacks or ExecutionCallbacks()
         self.db = ExecutionDB(db_path)
         self.worktree_manager = worktree_manager
+        
+        # Import here to avoid circular imports and handle both possible policy locations
+        if policy is None:
+            try:
+                # Try to import from scheduling module first (PR #46)
+                from ..scheduling.policies import FIFOPolicy
+                self.policy = FIFOPolicy()
+            except ImportError:
+                # Fall back to execution policies (our branch)
+                from .policies import FIFOPolicy
+                self.policy = FIFOPolicy()
+        else:
+            self.policy = policy
 
         self.execution_id = uuid.uuid4().hex[:16]
         self.started_at: datetime | None = None
@@ -96,6 +111,7 @@ class ParallelExecutionEngine:
             task_executor=self._create_task_executor(),
             on_task_complete=self._handle_task_complete,
             on_propagate_skip=self._propagate_skip,
+            policy=self.policy,
         )
 
         # Run the scheduler

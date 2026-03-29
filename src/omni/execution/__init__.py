@@ -17,6 +17,19 @@ from .models import (
     TaskExecutionError,
     TaskFatalError,
 )
+from .policies import (
+    BalancedPolicy,
+    CostAwarePolicy,
+    DeadlinePolicy,
+    FairPolicy,
+    FIFOPolicy,
+    PriorityPolicy,
+    SchedulingContext,
+    SchedulingPolicy,
+    SchedulingPolicyBase,
+    SchedulingScore,
+    get_policy,
+)
 from .scheduler import Scheduler
 
 # Re-export WorktreeEnv from git module for convenience
@@ -54,6 +67,19 @@ __all__ = [
 
     # Scheduler (mostly internal)
     "Scheduler",
+
+    # Scheduling policies (P2-16)
+    "SchedulingPolicy",
+    "SchedulingPolicyBase",
+    "SchedulingScore",
+    "SchedulingContext",
+    "FIFOPolicy",
+    "PriorityPolicy",
+    "DeadlinePolicy",
+    "CostAwarePolicy",
+    "FairPolicy",
+    "BalancedPolicy",
+    "get_policy",
 ]
 
 # Conditionally add WorktreeEnv to __all__

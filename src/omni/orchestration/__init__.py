@@ -11,6 +11,7 @@ from .conflicts import (
     Resolution,
     ResolutionStrategy,
 )
+from .integrator import OrchestrationResult, ResultIntegrator
 
 __all__ = [
     "ConflictResolver",
@@ -18,4 +19,6 @@ __all__ = [
     "FileConflict",
     "Resolution",
     "ResolutionStrategy",
+    "OrchestrationResult",
+    "ResultIntegrator",
 ]

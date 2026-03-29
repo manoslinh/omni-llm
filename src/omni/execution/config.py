@@ -45,6 +45,7 @@ class ExecutionContext:
     execution_id: str
     task_index: int  # Position in execution
     total_tasks: int
+    worktree_path: str | None = None  # Path to isolated worktree (if using worktrees)
 
 
 @dataclass

@@ -19,6 +19,14 @@ from .models import (
 )
 from .scheduler import Scheduler
 
+# Re-export WorktreeEnv from git module for convenience
+try:
+    from ..git.worktree import WorktreeEnv
+    __has_worktree = True
+except ImportError:
+    __has_worktree = False
+    WorktreeEnv = None  # type: ignore
+
 __all__ = [
     # Main engine
     "ParallelExecutionEngine",
@@ -47,3 +55,7 @@ __all__ = [
     # Scheduler (mostly internal)
     "Scheduler",
 ]
+
+# Conditionally add WorktreeEnv to __all__
+if __has_worktree:
+    __all__.append("WorktreeEnv")

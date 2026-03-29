@@ -6,5 +6,23 @@ Based on patterns from Aider's repo.py.
 """
 
 from .repository import GitRepository
+from .worktree import (
+    WorktreeManager,
+    WorktreeEnv,
+    WorktreeInfo,
+    WorktreeError,
+    WorktreeExistsError,
+    WorktreeNotFoundError,
+    WorktreeCreationError,
+)
 
-__all__ = ["GitRepository"]
+__all__ = [
+    "GitRepository",
+    "WorktreeManager",
+    "WorktreeEnv",
+    "WorktreeInfo",
+    "WorktreeError",
+    "WorktreeExistsError",
+    "WorktreeNotFoundError",
+    "WorktreeCreationError",
+]

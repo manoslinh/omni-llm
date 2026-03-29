@@ -348,9 +348,6 @@ class TestWorktreeEnv:
     @pytest.mark.asyncio
     async def test_aexit_force_fallback(self, manager, monkeypatch):
         """Test __aexit__ tries force removal if normal removal fails."""
-        # Create worktree normally
-        await manager.create("task-001")
-
         # Monkey-patch remove to fail on first call, succeed on force
         call_log = []
         original_remove = manager.remove
@@ -375,15 +372,13 @@ class TestWorktreeEnv:
     @pytest.mark.asyncio
     async def test_aexit_never_raises(self, manager, monkeypatch):
         """Test __aexit__ swallows cleanup errors."""
-        await manager.create("task-001")
-
         async def always_fail(task_id, **kwargs):
             raise WorktreeError("totally broken")
 
         monkeypatch.setattr(manager, "remove", always_fail)
 
         env = WorktreeEnv(manager, "task-001", cleanup_on_success=True)
-        await env.__aenter__()
+        await env.__aenter__()  # Creates worktree
         # Should NOT raise even though remove always fails
         await env.__aexit__(None, None, None)
 

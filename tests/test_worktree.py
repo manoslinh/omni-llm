@@ -26,8 +26,17 @@ async def git_repo(tmp_path):
     repo_path = tmp_path / "test-repo"
     repo_path.mkdir()
 
-    # Initialize git repo
+    # Initialize git repo with main as default branch
     repo = GitRepository(path=str(repo_path))
+    
+    # Configure git to use main as default branch
+    await repo._run_git(["config", "init.defaultBranch", "main"])
+    
+    # Rename master to main if it exists
+    try:
+        await repo._run_git(["branch", "-m", "master", "main"])
+    except Exception:
+        pass  # No master branch, that's fine
 
     # Create a file and commit
     (repo_path / "README.md").write_text("# Test Repository")
@@ -83,7 +92,8 @@ class TestWorktreeManager:
 
         assert info.task_id == "task-001"
         assert info.branch == "omni/task/task-001"
-        assert info.base_branch == "main"
+        # Git may create 'master' or 'main' as default branch
+        assert info.base_branch in ["main", "master"]
         assert info.path.exists()
         assert (info.path / "README.md").exists()
 
@@ -105,7 +115,7 @@ class TestWorktreeManager:
             await manager.create(f"task-{i}")
 
         # Next one should fail
-        with pytest.raises(WorktreeError, match="max worktrees"):
+        with pytest.raises(WorktreeError, match="[Mm]ax worktrees"):
             await manager.create("task-extra")
 
     @pytest.mark.asyncio

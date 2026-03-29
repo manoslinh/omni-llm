@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 
 from omni.task.models import Task, TaskGraph
 
+from .complexity_analyzer import ComplexityAnalyzer
 from .models import DecompositionResult, Subtask, SubtaskType
 from .strategies import (
     DecompositionContext,
@@ -107,7 +108,7 @@ class TaskDecompositionEngine:
         """
         self.config = config or EngineConfig()
         self._decomposition_history: list[DecompositionResult] = []
-        self._complexity_analyzer = None  # Lazy initialization
+        self._complexity_analyzer: ComplexityAnalyzer | None = None  # Lazy initialization
 
     def decompose(
         self,
@@ -353,7 +354,6 @@ class TaskDecompositionEngine:
         if task.complexity is None:
             # No explicit complexity, estimate it from description
             if self._complexity_analyzer is None:
-                from .complexity_analyzer import ComplexityAnalyzer
                 self._complexity_analyzer = ComplexityAnalyzer()
 
             estimated_complexity = self._complexity_analyzer.analyze_task_complexity(task)

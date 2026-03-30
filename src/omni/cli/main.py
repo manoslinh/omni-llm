@@ -14,10 +14,13 @@ from typing import Any
 import click
 import yaml
 
+from ..coordination import CoordinationEngine
+from ..decomposition import TaskDecompositionEngine
 from ..models.litellm_provider import LiteLLMProvider
 from ..models.mock_provider import MockProvider
 from ..models.provider import Message, MessageRole, ModelProvider
 from ..observability.cli import register_execute_command
+from ..orchestration import WorkflowEngine
 from ..providers.config import (
     DEFAULT_PROVIDERS_CONFIG_PATH,
     ConfigLoader,
@@ -26,7 +29,7 @@ from ..providers.config import (
 from ..task.models import Task, TaskType
 from .demo import run_demo
 
-# Import setup wizard
+# Import setup wizard (optional dependency on 'rich')
 SETUP_AVAILABLE = False
 setup_command: click.Command | None = None
 try:
@@ -36,26 +39,33 @@ try:
 except ImportError:
     pass
 
-# Import orchestration modules for new commands
-try:
-    from ..coordination import CoordinationEngine
-    from ..decomposition import TaskDecompositionEngine
-    from ..orchestration import WorkflowEngine
-    from ..router import ModelRouter
-    ORCHESTRATION_AVAILABLE = True
-except ImportError:
-    ORCHESTRATION_AVAILABLE = False
-    WorkflowEngine = None  # type: ignore[assignment, misc]
-    ModelRouter = None  # type: ignore[assignment, misc]
-    CoordinationEngine = None  # type: ignore[assignment, misc]
-    TaskDecompositionEngine = None  # type: ignore[assignment, misc]
-
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+def _auto_detect_providers() -> dict[str, str]:
+    """Detect available LLM providers from environment variables.
+
+    Returns a mapping of provider name to the environment variable name
+    that contains its API key.
+    """
+    detected: dict[str, str] = {}
+    env_mappings = {
+        "OPENAI_API_KEY": "openai",
+        "ANTHROPIC_API_KEY": "anthropic",
+        "GOOGLE_API_KEY": "google",
+        "DEEPSEEK_API_KEY": "deepseek",
+        "MISTRAL_API_KEY": "mistral",
+        "COHERE_API_KEY": "cohere",
+    }
+    for env_var, provider_name in env_mappings.items():
+        if os.environ.get(env_var):
+            detected[provider_name] = env_var
+    return detected
 
 
 @click.group()
@@ -173,29 +183,36 @@ def status() -> None:
     click.echo(f"Python: {sys.version}")
     click.echo(f"Platform: {sys.platform}")
 
-    # Check for API keys
-    import os
-    keys = {
-        "OPENAI_API_KEY": bool(os.getenv("OPENAI_API_KEY")),
-        "ANTHROPIC_API_KEY": bool(os.getenv("ANTHROPIC_API_KEY")),
-        "GOOGLE_API_KEY": bool(os.getenv("GOOGLE_API_KEY")),
-        "DEEPSEEK_API_KEY": bool(os.getenv("DEEPSEEK_API_KEY")),
+    # Detect providers from environment
+    detected = _auto_detect_providers()
+
+    # Also check common keys that might not map to a detected provider
+    all_env_keys = {
+        "OPENAI_API_KEY": "openai",
+        "ANTHROPIC_API_KEY": "anthropic",
+        "GOOGLE_API_KEY": "google",
+        "DEEPSEEK_API_KEY": "deepseek",
+        "MISTRAL_API_KEY": "mistral",
+        "COHERE_API_KEY": "cohere",
     }
 
     click.echo("\nAPI Keys:")
-    for key, present in keys.items():
-        status = "✅" if present else "❌"
-        click.echo(f"  {status} {key}")
+    for env_var, provider_name in all_env_keys.items():
+        present = provider_name in detected
+        indicator = "✅" if present else "❌"
+        click.echo(f"  {indicator} {env_var}")
 
-    # Check orchestration availability
-    click.echo("\nOrchestration Features:")
-    if ORCHESTRATION_AVAILABLE:
-        click.echo("  ✅ Multi-agent orchestration available")
-        click.echo("  ✅ Workflow templates available")
-        click.echo("  ✅ Model routing available")
+    if detected:
+        click.echo(f"\nDetected providers: {', '.join(sorted(detected.keys()))}")
     else:
-        click.echo("  ⚠️  Orchestration features not installed")
-        click.echo("     Install with: pip install -e '.[orchestration]'")
+        click.echo("\nNo API keys detected in environment.")
+        click.echo("Run `omni setup` to configure providers, or set environment variables.")
+
+    # Orchestration features are always available (part of the package)
+    click.echo("\nOrchestration Features:")
+    click.echo("  ✅ Multi-agent orchestration available")
+    click.echo("  ✅ Workflow templates available")
+    click.echo("  ✅ Model routing available")
 
 
 @cli.command()
@@ -206,10 +223,10 @@ def status() -> None:
 @click.option("--dry-run", is_flag=True, help="Plan without executing")
 def orchestrate(goal: str, budget: float | None, timeout: int, max_agents: int, dry_run: bool) -> None:
     """Run multi-agent orchestration for a goal."""
-    if not ORCHESTRATION_AVAILABLE:
-        click.echo("❌ Orchestration features not available")
-        click.echo("Install with: pip install -e '.[orchestration]'")
-        return
+    detected = _auto_detect_providers()
+    if not detected:
+        click.echo("No API keys found. Running in demo mode with mock provider.")
+        click.echo("Run `omni setup` to connect real AI models.\n")
 
     asyncio.run(_orchestrate_async(goal, budget, timeout, max_agents, dry_run))
 
@@ -221,10 +238,10 @@ def orchestrate(goal: str, budget: float | None, timeout: int, max_agents: int, 
 @click.option("--dry-run", is_flag=True, help="Show execution plan without running")
 def workflow(template: str, variables: str | None, var_file: str | None, dry_run: bool) -> None:
     """Execute a workflow template."""
-    if not ORCHESTRATION_AVAILABLE:
-        click.echo("❌ Orchestration features not available")
-        click.echo("Install with: pip install -e '.[orchestration]'")
-        return
+    detected = _auto_detect_providers()
+    if not detected:
+        click.echo("No API keys found. Running in demo mode with mock provider.")
+        click.echo("Run `omni setup` to connect real AI models.\n")
 
     asyncio.run(_workflow_async(template, variables, var_file, dry_run))
 
@@ -233,10 +250,10 @@ def workflow(template: str, variables: str | None, var_file: str | None, dry_run
 @click.option("--detailed", "-d", is_flag=True, help="Show detailed routing information")
 def router(detailed: bool) -> None:
     """Show current routing strategy and costs."""
-    if not ORCHESTRATION_AVAILABLE:
-        click.echo("❌ Orchestration features not available")
-        click.echo("Install with: pip install -e '.[orchestration]'")
-        return
+    detected = _auto_detect_providers()
+    if not detected:
+        click.echo("No API keys found. Running in demo mode with mock provider.")
+        click.echo("Run `omni setup` to connect real AI models.\n")
 
     asyncio.run(_router_async(detailed))
 

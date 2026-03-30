@@ -175,3 +175,7 @@ Thumbs.db
 test_quick.py
 .coverage.*
 test.py
+CONTEXT.md
+CLAUDE.md
+.claude/
+.claude-flow/

@@ -33,22 +33,26 @@ class TestModelProviderInterface:
     def test_abstract_methods_exist(self):
         """Verify all abstract methods are defined in the interface."""
         abstract_methods = ModelProvider.__abstractmethods__
-        expected_methods = {
-            'complete',
+        # Core abstract methods (must be overridden)
+        expected_abstract = {
+            'chat_completion',
+            'stream_chat_completion',
             'count_tokens',
             'estimate_cost',
-            'get_capabilities',
-            'list_models',
             'close',
+            'name',
+            'supports_streaming',
+            'cost_per_token',
         }
 
-        # Check all expected methods are abstract
-        for method in expected_methods:
+        for method in expected_abstract:
             assert method in abstract_methods, f"Method {method} should be abstract"
 
-        # Check no unexpected abstract methods
-        for method in abstract_methods:
-            assert method in expected_methods, f"Unexpected abstract method: {method}"
+        # These have default implementations (not abstract)
+        default_methods = {'complete', 'get_capabilities', 'list_models'}
+        for method in default_methods:
+            assert method not in abstract_methods, f"Method {method} should have a default"
+            assert hasattr(ModelProvider, method), f"Method {method} should exist"
 
     def test_message_dataclass(self):
         """Test Message dataclass creation and properties."""
@@ -771,17 +775,14 @@ class TestConfigurationLoading:
         assert hasattr(result, 'finish_reason')
         assert hasattr(result, 'tool_calls')
 
-        # Verify ModelProvider interface methods exist
-        provider_methods = set(ModelProvider.__abstractmethods__)
+        # Verify ModelProvider interface has required methods (abstract + default)
         required_methods = {
-            'complete',
-            'count_tokens',
-            'estimate_cost',
-            'get_capabilities',
-            'list_models',
-            'close',
+            'complete', 'chat_completion', 'stream_chat_completion',
+            'count_tokens', 'estimate_cost', 'get_capabilities',
+            'list_models', 'close',
         }
-        assert required_methods.issubset(provider_methods)
+        for method in required_methods:
+            assert hasattr(ModelProvider, method), f"ModelProvider should have method {method}"
 
 
 class TestMockTesting:

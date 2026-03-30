@@ -1,8 +1,16 @@
 """
-Model Provider Abstraction Layer - Phase 1 Foundation.
+Model Provider Abstraction Layer — Canonical Interface.
 
-Defines the core ModelProvider interface for Omni-LLM.
+Defines the unified ModelProvider interface for Omni-LLM.
 All providers must implement this interface.
+
+This is the single source of truth for:
+- MessageRole, Message, TokenUsage (shared data types)
+- ChatCompletion / CompletionResult (response container)
+- ModelCapabilities (per-model feature flags)
+- CostRate (pricing metadata)
+- ModelProvider ABC (the contract every backend implements)
+- Provider exception hierarchy
 """
 
 from abc import ABC, abstractmethod
@@ -11,6 +19,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+# ── Shared Data Types ────────────────────────────────────────────────────────
+
 
 class MessageRole(StrEnum):
     """Message roles for chat completion."""
@@ -18,6 +28,9 @@ class MessageRole(StrEnum):
     USER = "user"
     ASSISTANT = "assistant"
     TOOL = "tool"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 @dataclass
@@ -40,6 +53,10 @@ class ChatCompletion:
     tool_calls: list[dict[str, Any]] | None = None
 
 
+# Backward-compatible alias used by omni.models.provider consumers.
+CompletionResult = ChatCompletion
+
+
 @dataclass
 class TokenUsage:
     """Token usage statistics."""
@@ -55,8 +72,37 @@ class CostRate:
     output_per_million: float  # USD per million output tokens
 
 
+@dataclass
+class ModelCapabilities:
+    """Capabilities of a specific model."""
+    supports_edit_format: str = "whole"  # "whole", "diff", "editblock"
+    max_context_tokens: int = 128_000
+    supports_tools: bool = False
+    supports_streaming: bool = True
+    supports_vision: bool = False
+    supports_audio: bool = False
+    temperature_range: tuple[float, float] = (0.0, 2.0)
+    top_p_range: tuple[float, float] = (0.0, 1.0)
+
+
+# ── ModelProvider ABC ────────────────────────────────────────────────────────
+
+
 class ModelProvider(ABC):
-    """Abstract base class for all model providers."""
+    """Abstract base class for all model providers.
+
+    Required methods (must override):
+        chat_completion, stream_chat_completion, count_tokens,
+        estimate_cost, close
+
+    Required properties (must override):
+        name, supports_streaming, cost_per_token
+
+    Optional methods (have sensible defaults):
+        complete          — delegates to chat_completion
+        get_capabilities  — returns generic ModelCapabilities
+        list_models       — returns empty list
+    """
 
     @property
     @abstractmethod
@@ -181,6 +227,49 @@ class ModelProvider(ABC):
     async def close(self) -> None:
         """Clean up provider resources."""
         pass
+
+    # ── Optional methods with default implementations ────────────────────
+
+    async def complete(
+        self,
+        messages: list[Message],
+        model: str,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        **kwargs: Any,
+    ) -> ChatCompletion:
+        """Convenience wrapper that delegates to ``chat_completion``.
+
+        Subclasses that were written against the old
+        ``omni.models.provider.ModelProvider`` contract override this
+        directly and never call ``chat_completion``.  The default
+        implementation here bridges the two styles so that callers
+        using ``complete()`` still work when the subclass only
+        implements ``chat_completion()``.
+        """
+        return await self.chat_completion(
+            messages, model, temperature=temperature,
+            max_tokens=max_tokens, **kwargs,
+        )
+
+    def get_capabilities(self, model: str) -> ModelCapabilities:
+        """Return capabilities for *model*.
+
+        The default implementation returns a generic
+        ``ModelCapabilities`` instance.  Subclasses may override to
+        provide model-specific information.
+        """
+        return ModelCapabilities()
+
+    def list_models(self) -> list[str]:
+        """List available model identifiers.
+
+        The default implementation returns an empty list.
+        """
+        return []
+
+
+# ── Exception Hierarchy ──────────────────────────────────────────────────────
 
 
 class ProviderError(Exception):

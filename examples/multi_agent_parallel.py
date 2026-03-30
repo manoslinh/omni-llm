@@ -280,7 +280,7 @@ async def demonstrate_resource_pool():
     print("\n\n5. Resource Pool Management")
     print("=" * 60)
 
-    from omni.coordination.resource_pool import ResourcePool
+    from omni.scheduling.resource_pool import ResourcePool
 
     # Create resource pool with agents
     agents = create_agent_profiles()
@@ -338,7 +338,7 @@ async def demonstrate_cost_tracking():
     print("\n\n6. Cost Tracking and Optimization")
     print("=" * 60)
 
-    from omni.coordination.cost_tracker import CostTracker
+    from omni.providers.cost_tracker import CostTracker
 
     # Create cost tracker
     tracker = CostTracker(budget=0.10)  # $0.10 budget

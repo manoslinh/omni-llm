@@ -2629,7 +2629,7 @@ tests/
 └── test_integration.py     # Full pipeline tests
 
 docs/
-└── P2-15-ARCHITECTURE.md  # This document
+└── workflow-orchestration.md  # This document
 ```
 
 ---

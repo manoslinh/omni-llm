@@ -185,6 +185,6 @@ pytest tests/test_predictive_module.py -v
 
 ## See Also
 
-- [P2-16 Architecture](../docs/P2-16-ARCHITECTURE.md) - Full architecture design
+- [Scheduling Architecture](../docs/scheduling-architecture.md) - Full architecture design
 - [Example Usage](../examples/predictive_module_usage.py) - Working demo
 - [Test Suite](../tests/test_predictive_module.py) - Comprehensive tests

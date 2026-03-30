@@ -8,7 +8,7 @@ applying batches of edits, edge cases, and error handling.
 import asyncio
 import os
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -532,8 +532,6 @@ class TestErrorHandling:
         applier = EditApplier(base_path=str(tmp_path))
 
         # Mock _read_file to raise a PermissionError
-        original_read = applier._read_file
-
         async def mock_read_file(path):
             raise PermissionError("Permission denied")
 
@@ -552,8 +550,6 @@ class TestErrorHandling:
     async def test_write_permission_error_returns_error(self, tmp_path):
         """Test behavior when file cannot be written."""
         applier = EditApplier(base_path=str(tmp_path))
-
-        original_write = applier._write_file
 
         async def mock_write_file(path, content):
             raise PermissionError("Permission denied")
@@ -592,8 +588,6 @@ class TestErrorHandling:
         target.write_text("content", encoding="utf-8")
 
         applier = EditApplier(base_path=str(tmp_path))
-
-        original_apply_single = applier._apply_single_edit
 
         async def mock_apply_single(edit, content, file_path, idx):
             raise ValueError("Bad edit")

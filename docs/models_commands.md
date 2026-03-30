@@ -245,4 +245,4 @@ The new models commands integrate seamlessly with existing Omni-LLM features:
 
 - [Demo Command](demo_command.md) - Interactive showcase of Omni-LLM capabilities
 - [Setup Guide](../README.md#setup) - Initial setup and configuration
-- [Routing Documentation] - How models are selected for different tasks
+- [Routing Documentation](./orchestration.md) - How models are selected for different tasks

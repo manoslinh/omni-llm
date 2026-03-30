@@ -12,7 +12,7 @@ The Schedule Adjuster is a real-time adjustment engine for task scheduling that 
 ### Core Components
 
 ```python
-from src.omni.scheduling.adjuster import ScheduleAdjuster
+from omni.execution.adjuster import ScheduleAdjuster
 
 # Create adjuster with optional matcher
 adjuster = ScheduleAdjuster(matcher=task_matcher)

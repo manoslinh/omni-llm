@@ -112,7 +112,7 @@ Monitors system metrics to identify constraints in real-time.
 ## Usage Example
 
 ```python
-from src.omni.scheduling.predictive import (
+from omni.scheduling.predictive import (
     WorkloadTracker, DemandForecaster, BottleneckDetector, ExecutionRecord
 )
 

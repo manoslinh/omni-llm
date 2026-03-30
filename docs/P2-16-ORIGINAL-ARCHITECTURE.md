@@ -1,9 +1,7 @@
 # P2-16 (Original): Git Worktree Manager — Architecture
 
-**Author:** Athena (mimo-v2-pro)
 **Date:** 2026-03-29
 **Phase:** 2.4 — Parallel Execution Isolation
-**Status:** Architecture Design (v2 — post-review)
 
 ---
 

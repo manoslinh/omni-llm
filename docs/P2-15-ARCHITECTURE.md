@@ -1,10 +1,8 @@
 # P2-15: Workflow Orchestration — Architecture
 
-**Author:** Thinker (mimo-v2-pro)
 **Date:** 2026-03-28
 **Phase:** 2.4 — Advanced Orchestration & Multi-Agent Coordination
 **Sprint:** P2-15
-**Status:** Architecture Design
 
 ---
 

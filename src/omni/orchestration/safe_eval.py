@@ -104,7 +104,7 @@ class SafeExpressionEvaluator:
         ast.Div: operator.truediv,
     }
 
-    _UNARY_OPS = {
+    _UNARY_OPS: dict[type, Any] = {
         ast.UAdd: operator.pos,
         ast.USub: operator.neg,
         ast.Not: operator.not_,
@@ -224,7 +224,7 @@ class SafeExpressionEvaluator:
             return [self._eval_node(elt, context) for elt in node.elts]
 
         if isinstance(node, ast.Dict):
-            keys = [self._eval_node(k, context) for k in node.keys]
+            keys = [self._eval_node(k, context) for k in node.keys if k is not None]
             values = [self._eval_node(v, context) for v in node.values]
             return dict(zip(keys, values, strict=True))
 

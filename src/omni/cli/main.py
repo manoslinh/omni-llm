@@ -107,8 +107,9 @@ def setup() -> None:
         click.echo("Make sure rich is installed: pip install rich")
         return
 
-    # Call the setup command
-    setup_command()
+    # Invoke the setup command via Click context to avoid sys.argv re-reading
+    ctx = click.Context(setup_command)
+    ctx.invoke(setup_command)
 
 
 @cli.command()

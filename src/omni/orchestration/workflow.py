@@ -16,6 +16,7 @@ import yaml
 from ..task.models import Task, TaskGraph
 from ..task.models import TaskType as CoreTaskType
 from .integrator import OrchestrationResult
+from .safe_eval import SafeExpressionEvaluator, UnsafeExpressionError
 from .workflow_models import TaskType, VariableDef, WorkflowStep, WorkflowTemplate
 
 logger = logging.getLogger(__name__)
@@ -264,20 +265,11 @@ class WorkflowEngine:
 
     def _evaluate_condition(self, condition: str, context: dict[str, Any]) -> bool:
         """
-        Evaluate a condition string in the given context.
+        Evaluate a condition string safely in the given context.
 
-        Simple implementation: checks if variable exists and is truthy.
-        In a real implementation, this could use a proper expression evaluator.
-
-        SECURITY WARNING: This method uses Python's eval() function which poses
-        a security risk if condition strings come from untrusted sources.
-        The current implementation restricts the namespace to only the context
-        dictionary, but eval() can still execute arbitrary Python code.
-
-        PHASE 3 MITIGATION PLAN: Replace eval() with ast.literal_eval() for
-        simple expressions or implement a restricted expression evaluator that
-        only supports safe operations (comparisons, logical operators, arithmetic).
-        This will eliminate the security risk while maintaining functionality.
+        Uses SafeExpressionEvaluator (AST-based) instead of eval() to prevent
+        arbitrary code execution. Only safe operations are permitted: constants,
+        variable lookups, comparisons, logical operators, and basic arithmetic.
 
         Args:
             condition: Condition string (e.g., "{variable} == 'value'")
@@ -286,37 +278,13 @@ class WorkflowEngine:
         Returns:
             True if condition evaluates to True, False otherwise
         """
-        # Simple implementation: check if the condition references a variable
-        # and that variable exists and is truthy in the context
         import re
 
-        # Extract variable names from condition (both {var} and bare var names)
+        evaluator = SafeExpressionEvaluator()
+
+        # Extract braced variable references like {var_name}
         var_pattern = r"{(\w+)}"
         braced_variables = re.findall(var_pattern, condition)
-
-        # Also look for bare variable names that are valid Python identifiers
-        # but not keywords or built-in functions
-        bare_variables = []
-        words = re.findall(r"\b[a-zA-Z_][a-zA-Z0-9_]*\b", condition)
-        python_keywords = {"and", "or", "not", "in", "is", "True", "False", "None"}
-        for word in words:
-            if (
-                word not in python_keywords
-                and word not in braced_variables
-                and not word.isdigit()
-            ):
-                bare_variables.append(word)
-
-        all_variables = set(braced_variables + bare_variables)
-
-        if not all_variables:
-            # No variables, treat as Python expression
-            # SECURITY NOTE: eval() is used here - see Phase 3 mitigation plan in docstring
-            try:
-                return bool(eval(condition, {}, context))
-            except Exception:
-                logger.warning(f"Failed to evaluate condition: {condition}")
-                return False
 
         # For simple variable checks (just {variable} format)
         if (
@@ -328,31 +296,32 @@ class WorkflowEngine:
                 return False
             return bool(context[var_name])
 
-        # For complex expressions, try to evaluate as Python
-        # First substitute braced variables in the condition
+        # Substitute braced variables into the condition string
         substituted_condition = condition
         for var_name in braced_variables:
             if var_name in context:
-                # Replace {var_name} with the actual value
                 placeholder = f"{{{var_name}}}"
                 value = context[var_name]
-                # Handle string values by quoting them
                 if isinstance(value, str):
                     value = f"'{value}'"
                 substituted_condition = substituted_condition.replace(
                     placeholder, str(value)
                 )
             else:
-                # Variable not in context
                 return False
 
-        # Now evaluate with context available for bare variables
-        # SECURITY NOTE: eval() is used here - see Phase 3 mitigation plan in docstring
+        # Evaluate safely using AST-based evaluator
         try:
-            return bool(eval(substituted_condition, {}, context))
-        except Exception:
+            return bool(evaluator.evaluate(substituted_condition, context))
+        except UnsafeExpressionError:
             logger.warning(
-                f"Failed to evaluate condition: {condition} (substituted: {substituted_condition})"
+                f"Rejected unsafe condition expression: {condition}"
+            )
+            return False
+        except (ValueError, NameError, TypeError, KeyError) as e:
+            logger.warning(
+                f"Failed to evaluate condition: {condition} "
+                f"(substituted: {substituted_condition}): {e}"
             )
             return False
 

@@ -7,10 +7,13 @@ Essential for unit testing and development.
 
 import asyncio
 import logging
+from collections.abc import AsyncGenerator
 from typing import Any
 
 from .provider import (
+    ChatCompletion,
     CompletionResult,
+    CostRate,
     Message,
     ModelCapabilities,
     ModelProvider,
@@ -34,6 +37,56 @@ class MockProvider(ModelProvider):
         self.responses = responses or self._get_default_responses()
         self.call_log: list[dict[str, Any]] = []
         logger.info("Mock provider initialized")
+
+    # ── Required abstract properties ─────────────────────────────────────
+
+    @property
+    def name(self) -> str:
+        """Name of the provider."""
+        return "mock"
+
+    @property
+    def supports_streaming(self) -> bool:
+        """Whether the provider supports streaming."""
+        return True
+
+    @property
+    def cost_per_token(self) -> dict[str, CostRate]:
+        """Cost per token for each model."""
+        return {}
+
+    # ── Required abstract methods ────────────────────────────────────────
+
+    async def chat_completion(
+        self,
+        messages: list[Message],
+        model: str,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        **kwargs: Any,
+    ) -> ChatCompletion:
+        """Delegate to ``complete()``."""
+        return await self.complete(
+            messages, model, temperature=temperature,
+            max_tokens=max_tokens, **kwargs,
+        )
+
+    async def stream_chat_completion(  # type: ignore[override]
+        self,
+        messages: list[Message],
+        model: str,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        **kwargs: Any,
+    ) -> AsyncGenerator[str, None]:
+        """Stream mock response character by character."""
+        result = await self.complete(
+            messages, model, temperature=temperature,
+            max_tokens=max_tokens, **kwargs,
+        )
+        yield result.content
+
+    # ── Legacy entry-point kept for backward compatibility ────────────────
 
     async def complete(
         self,

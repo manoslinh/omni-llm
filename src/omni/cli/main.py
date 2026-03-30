@@ -5,15 +5,24 @@ Main CLI interface for the Omni-LLM tool.
 """
 
 import asyncio
+import json
 import logging
+import os
 import sys
+from typing import Any
 
 import click
+import yaml
 
 from ..models.litellm_provider import LiteLLMProvider
 from ..models.mock_provider import MockProvider
 from ..models.provider import Message, MessageRole, ModelProvider
 from ..observability.cli import register_execute_command
+from ..providers.config import (
+    DEFAULT_PROVIDERS_CONFIG_PATH,
+    ConfigLoader,
+    ProviderConfig,
+)
 from ..task.models import Task, TaskType
 from .demo import run_demo
 
@@ -108,10 +117,52 @@ def demo(fast: bool, silent: bool, scenario: str | None) -> None:
         raise
 
 
-@cli.command()
+@cli.group()
 def models() -> None:
+    """Manage models and providers."""
+    pass
+
+
+@models.command(name="list")
+def models_list() -> None:
     """List available models."""
     asyncio.run(_list_models_async())
+
+
+@models.command(name="add")
+@click.argument("name")
+@click.option("--type", "-t", required=True, help="Provider type (e.g., litellm, mock)")
+@click.option("--description", "-d", default="", help="Provider description")
+@click.option("--enabled/--disabled", default=True, help="Enable or disable the provider")
+@click.option("--config", "-c", help="JSON configuration for the provider")
+@click.option("--models-json", "-m", help="JSON models configuration")
+@click.option("--config-file", "-f", type=click.Path(exists=True), help="YAML configuration file")
+@click.option("--force", "-F", is_flag=True, help="Force overwrite without confirmation prompt")
+def models_add(
+    name: str,
+    type: str,
+    description: str,
+    enabled: bool,
+    config: str | None,
+    models_json: str | None,
+    config_file: str | None,
+    force: bool,
+) -> None:
+    """Add a custom model provider."""
+    asyncio.run(_add_model_async(name, type, description, enabled, config, models_json, config_file, force))
+
+
+@models.command(name="status")
+@click.argument("query", required=False)
+@click.option("--provider", "-p", help="Search by provider name instead of model name")
+@click.option("--detailed", "-d", is_flag=True, help="Show detailed information")
+def models_status(query: str | None, provider: str | None, detailed: bool) -> None:
+    """Show detailed model status and information.
+
+    If QUERY is provided, searches for matching model names.
+    Use --provider to search by provider name instead.
+    """
+    asyncio.run(_model_status_async(query, provider, detailed))
 
 
 @cli.command()
@@ -534,6 +585,253 @@ async def _router_async(detailed: bool) -> None:
     except Exception as e:
         click.echo(f"❌ Error: {e}", err=True)
         logger.exception("Router status failed")
+        sys.exit(1)
+
+
+async def _add_model_async(
+    name: str,
+    type: str,
+    description: str,
+    enabled: bool,
+    config: str | None,
+    models_json: str | None,
+    config_file: str | None,
+    force: bool = False,
+) -> None:
+    """Async implementation of the models add command."""
+    try:
+        # Load existing configuration
+        config_path = DEFAULT_PROVIDERS_CONFIG_PATH
+        if not config_path.exists():
+            click.echo(f"❌ Configuration file not found: {config_path}")
+            click.echo("   Make sure you're in the correct directory or run 'omni setup' first.")
+            sys.exit(1)
+
+        # Load existing config
+        loader = ConfigLoader()
+        provider_config = loader.load_providers_config(config_path)
+
+        # Check if provider already exists
+        if name in provider_config.providers:
+            if force:
+                click.echo(f"⚠️  Provider '{name}' already exists. Overwriting due to --force flag.")
+            else:
+                click.echo(f"⚠️  Provider '{name}' already exists.")
+                try:
+                    if not click.confirm("Do you want to overwrite it?"):
+                        click.echo("❌ Operation cancelled.")
+                        sys.exit(1)
+                except click.exceptions.Abort:
+                    # Handle non-interactive mode (e.g., when piped or redirected)
+                    click.echo("❌ Operation cancelled. Provider already exists.")
+                    click.echo("   Use --force flag to overwrite without confirmation.")
+                    sys.exit(1)
+
+        # Parse configuration
+        config_dict = {}
+        if config:
+            try:
+                config_dict = json.loads(config)
+            except json.JSONDecodeError as e:
+                click.echo(f"❌ Invalid JSON configuration: {e}")
+                sys.exit(1)
+
+        # Parse models configuration
+        models_dict = {}
+        if models_json:
+            try:
+                models_dict = json.loads(models_json)
+            except json.JSONDecodeError as e:
+                click.echo(f"❌ Invalid JSON models configuration: {e}")
+                sys.exit(1)
+
+        # Load from config file if provided
+        if config_file:
+            try:
+                with open(config_file) as f:
+                    file_data = yaml.safe_load(f)
+                if "config" in file_data:
+                    config_dict.update(file_data["config"])
+                if "models" in file_data:
+                    models_dict.update(file_data["models"])
+            except Exception as e:
+                click.echo(f"❌ Error loading config file: {e}")
+                sys.exit(1)
+
+        # Create provider configuration
+        provider = ProviderConfig(
+            name=name,
+            type=type,
+            description=description,
+            enabled=enabled,
+            config=config_dict,
+            models=models_dict,
+        )
+
+        # Add to configuration
+        provider_config.providers[name] = provider
+
+        # Save configuration
+        loader.save_providers_config(provider_config, config_path)
+
+        click.echo(f"✅ Provider '{name}' added successfully!")
+        click.echo(f"   Type: {type}")
+        click.echo(f"   Enabled: {enabled}")
+        click.echo(f"   Models configured: {len(models_dict)}")
+        click.echo(f"   Configuration saved to: {config_path}")
+
+    except Exception as e:
+        click.echo(f"❌ Error adding provider: {e}")
+        logger.exception("Add model failed")
+        sys.exit(1)
+
+
+async def _model_status_async(query: str | None, provider_filter: str | None, detailed: bool) -> None:
+    """Async implementation of the models status command."""
+    try:
+        # Load configuration
+        config_path = DEFAULT_PROVIDERS_CONFIG_PATH
+        if not config_path.exists():
+            click.echo(f"❌ Configuration file not found: {config_path}")
+            click.echo("   Make sure you're in the correct directory or run 'omni setup' first.")
+            return
+
+        loader = ConfigLoader()
+        provider_config = loader.load_providers_config(config_path)
+
+        # Also load models config for additional details
+        models_config_path = config_path.parent / "models.yaml"
+        models_config: dict[str, Any] = {}
+        if models_config_path.exists():
+            with open(models_config_path) as f:
+                models_config = yaml.safe_load(f) or {}
+
+        click.echo("📊 Model Status")
+        click.echo("=" * 50)
+
+        if provider_filter:
+            # Show status for specific provider
+            if provider_filter in provider_config.providers:
+                provider = provider_config.providers[provider_filter]
+                click.echo(f"\nProvider: {provider_filter}")
+                click.echo(f"Type: {provider.type}")
+                click.echo(f"Description: {provider.description}")
+                click.echo(f"Enabled: {provider.enabled}")
+                click.echo(f"Models: {len(provider.models)}")
+
+                if provider.models:
+                    click.echo("\nModels:")
+                    for model_name in sorted(provider.models.keys()):
+                        click.echo(f"  • {model_name}")
+
+                if detailed and provider.config:
+                    click.echo("\nConfiguration:")
+                    for key, value in provider.config.items():
+                        click.echo(f"  {key}: {value}")
+            else:
+                click.echo(f"❌ Provider '{provider_filter}' not found in configuration.")
+                click.echo("   Available providers:")
+                for provider_name in sorted(provider_config.providers.keys()):
+                    click.echo(f"   • {provider_name}")
+
+        elif query:
+            # Show status for specific model (search by model name)
+            found = False
+
+            # Search across all providers
+            for provider_name, provider in provider_config.providers.items():
+                if query in provider.models:
+                    found = True
+                    click.echo(f"\nModel: {query}")
+                    click.echo(f"Provider: {provider_name} ({provider.type})")
+                    click.echo(f"Enabled: {provider.enabled}")
+
+                    # Show model configuration
+                    model_config = provider.models.get(query, {})
+                    if model_config:
+                        click.echo("\nConfiguration:")
+                        for key, value in model_config.items():
+                            click.echo(f"  {key}: {value}")
+
+                    # Check cost configuration
+                    cost_config = provider_config.get_model_cost(query)
+                    if cost_config:
+                        click.echo("\nCost (per million tokens):")
+                        click.echo(f"  Input: ${cost_config.input_per_million:.2f}")
+                        click.echo(f"  Output: ${cost_config.output_per_million:.2f}")
+
+                    # Check in models.yaml for additional details
+                    if models_config and "models" in models_config:
+                        model_details = models_config["models"].get(query.split("/")[-1] if "/" in query else query)
+                        if model_details:
+                            click.echo("\nAdditional Details:")
+                            for key, value in model_details.items():
+                                if key not in ["provider", "model_id"]:
+                                    click.echo(f"  {key}: {value}")
+                    break
+
+            if not found:
+                # Also check if query matches a provider name
+                if query in provider_config.providers:
+                    click.echo(f"⚠️  '{query}' matches a provider name, not a model.")
+                    click.echo(f"   Use 'omni models status --provider {query}' to view provider details.")
+                else:
+                    click.echo(f"❌ Model '{query}' not found in configuration.")
+                    click.echo("   Use 'omni models list' to see available models.")
+        else:
+            # Show overall status
+            click.echo(f"\nConfiguration File: {config_path}")
+            click.echo(f"Total Providers: {len(provider_config.providers)}")
+            click.echo(f"Total Models Configured: {sum(len(p.models) for p in provider_config.providers.values())}")
+
+            # Show provider status
+            click.echo("\nProviders:")
+            for provider_name, provider in provider_config.providers.items():
+                status = "✅" if provider.enabled else "❌"
+                click.echo(f"  {status} {provider_name}: {provider.type} ({len(provider.models)} models)")
+                if detailed:
+                    click.echo(f"    Description: {provider.description}")
+
+            # Show default settings
+            if provider_config.defaults:
+                click.echo("\nDefaults:")
+                for key, value in provider_config.defaults.items():
+                    click.echo(f"  {key}: {value}")
+
+            # Show budget status
+            click.echo("\nBudget:")
+            click.echo(f"  Daily Limit: ${provider_config.budget.daily_limit:.2f}")
+            click.echo(f"  Per Session Limit: ${provider_config.budget.per_session_limit:.2f}")
+
+            # Show rate limiting
+            if provider_config.rate_limiting.enabled:
+                click.echo("\nRate Limiting:")
+                click.echo(f"  Requests per minute: {provider_config.rate_limiting.requests_per_minute}")
+                click.echo(f"  Tokens per minute: {provider_config.rate_limiting.tokens_per_minute}")
+
+            if detailed:
+                # Show API key status
+                click.echo("\nAPI Keys:")
+                for key_name, env_var in provider_config.api_keys.items():
+                    if env_var.startswith("${") and env_var.endswith("}"):
+                        env_var_name = env_var[2:-1]
+                        value = os.getenv(env_var_name)
+                        status = "✅" if value else "❌"
+                        click.echo(f"  {status} {key_name}: {'Set' if value else 'Not set'}")
+
+                # Show cost configurations
+                if provider_config.cost_config:
+                    click.echo(f"\nCost Configurations: {len(provider_config.cost_config)} models")
+                    for model_id, cost in list(provider_config.cost_config.items())[:5]:  # Show first 5
+                        click.echo(f"  {model_id}: ${cost.input_per_million:.2f} / ${cost.output_per_million:.2f}")
+                    if len(provider_config.cost_config) > 5:
+                        click.echo(f"  ... and {len(provider_config.cost_config) - 5} more")
+
+        click.echo("\n✅ Status displayed successfully!")
+
+    except Exception as e:
+        click.echo(f"❌ Error showing status: {e}")
+        logger.exception("Model status failed")
         sys.exit(1)
 
 

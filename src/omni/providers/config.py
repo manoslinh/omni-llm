@@ -183,12 +183,24 @@ class ProviderConfiguration:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert configuration to dictionary."""
+        # Convert cost_config to nested structure with 'rates' key
+        cost_config_dict = {}
+        if self.cost_config:
+            cost_config_dict["rates"] = {
+                model_id: {
+                    "input": cost.input_per_million,
+                    "output": cost.output_per_million,
+                    "currency": cost.currency
+                }
+                for model_id, cost in self.cost_config.items()
+            }
+
         return {
             "providers": {name: config.to_dict() for name, config in self.providers.items()},
             "defaults": self.defaults,
             "api_keys": self.api_keys,
             "provider_configs": self.provider_configs,
-            "cost_config": {k: asdict(v) for k, v in self.cost_config.items()},
+            "cost_config": cost_config_dict,
             "budget": asdict(self.budget),
             "rate_limiting": asdict(self.rate_limiting),
         }
@@ -304,13 +316,8 @@ class ConfigLoader:
         """Save provider configuration to YAML file."""
         file_path = Path(file_path)
 
-        # Convert to dictionary
+        # Convert to dictionary (to_dict already handles the structure)
         data = config.to_dict()
-
-        # Convert ModelCostConfig objects to dictionaries
-        if "cost_config" in data and "rates" in data["cost_config"]:
-            # Already handled in to_dict method
-            pass
 
         # Write YAML file
         with open(file_path, 'w') as f:

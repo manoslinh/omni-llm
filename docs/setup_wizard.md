@@ -267,6 +267,6 @@ Planned improvements:
 
 ## See Also
 
-- [Configuration Guide](../docs/configuration.md)
-- [CLI Reference](../docs/cli.md)
-- [Provider Documentation](../docs/providers.md)
+- [Configuration Guide](./models_commands.md)
+- [CLI Reference](./demo_command.md)
+- [Provider Documentation](./health-monitoring.md)

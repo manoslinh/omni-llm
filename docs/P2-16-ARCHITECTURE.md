@@ -1,10 +1,8 @@
 # P2-16: Advanced Scheduling & Resource Management — Architecture
 
-**Author:** Thinker (mimo-v2-pro)
 **Date:** 2026-03-28
 **Phase:** 2.4 — Advanced Orchestration & Multi-Agent Coordination
 **Sprint:** P2-16
-**Status:** Architecture Design
 **PR:** (pending)
 
 ---

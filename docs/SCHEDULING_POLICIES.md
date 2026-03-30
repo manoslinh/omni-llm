@@ -43,8 +43,8 @@ Scheduling policies determine the order in which ready tasks are executed. This 
 ### Basic Usage
 
 ```python
-from src.omni.scheduling.policies import get_policy
-from src.omni.execution.scheduler import Scheduler
+from omni.scheduling.policies import get_policy
+from omni.execution.scheduler import Scheduler
 
 # Get a policy by name
 policy = get_policy("priority")
@@ -90,7 +90,7 @@ scheduler = Scheduler(
 Tasks can provide scheduling hints through their context:
 
 ```python
-from src.omni.task.models import Task
+from omni.task.models import Task
 import time
 
 # Task with priority and deadline
@@ -175,19 +175,19 @@ def list_policies() -> List[str]
 
 ### Unit Tests
 ```bash
-cd projects/omni-llm
+cd /path/to/omni-llm
 python3 -m pytest tests/test_scheduling_policies.py -v
 ```
 
 ### Integration Tests
 ```bash
-cd projects/omni-llm
+cd /path/to/omni-llm
 python3 -m pytest tests/test_scheduling_integration.py -v
 ```
 
 ### Example
 ```bash
-cd projects/omni-llm
+cd /path/to/omni-llm
 python3 examples/scheduling_policies_example.py
 ```
 

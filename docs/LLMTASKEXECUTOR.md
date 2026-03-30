@@ -7,10 +7,10 @@
 ## Features
 
 1. **Tier-based Model Routing**: Automatically routes tasks to appropriate models based on `ComplexityEstimate.tier`:
-   - `intern` → `mimo/mimo-v2-flash`
-   - `coder` → `deepseek/deepseek-chat`
-   - `reader` → `moonshot/kimi-k2.5`
-   - `thinker` → `mimo/mimo-v2-pro`
+   - `intern` → `provider/fast-model`
+   - `coder` → `provider/standard-model`
+   - `reader` → `provider/advanced-model`
+   - `thinker` → `provider/premium-model`
 
 2. **Context Assembly**: Builds comprehensive prompts from:
    - Task description
@@ -20,7 +20,7 @@
 
 3. **Timeout Handling**: Uses `asyncio.wait_for` for per-task timeouts.
 
-4. **Fallback Mechanism**: Automatically falls back to alternative models (`gpt-5-mini` → `gpt-4.1-mini`) on failures.
+4. **Fallback Mechanism**: Automatically falls back to alternative models (`gpt-4o-mini` → `gpt-4o-mini`) on failures.
 
 5. **Cost Tracking**: Calculates token usage costs based on provider rates.
 
@@ -31,17 +31,17 @@
 ### Basic Usage
 
 ```python
-from src.omni.execution.executor import LLMTaskExecutor
-from src.omni.router import ModelRouter, RouterConfig
-from src.omni.providers.mock_provider import MockProvider
-from src.omni.task.models import Task, TaskType, ComplexityEstimate
-from src.omni.execution.config import ExecutionContext
+from omni.execution.executor import LLMTaskExecutor
+from omni.router import ModelRouter, RouterConfig
+from omni.providers.mock_provider import MockProvider
+from omni.task.models import Task, TaskType, ComplexityEstimate
+from omni.execution.config import ExecutionContext
 
 # Create router with providers
 mock_provider = MockProvider()
 config = RouterConfig(providers={
-    "mimo/mimo-v2-flash": mock_provider,
-    "deepseek/deepseek-chat": mock_provider,
+    "provider/fast-model": mock_provider,
+    "provider/standard-model": mock_provider,
     # ... other providers
 })
 router = ModelRouter(config)
@@ -81,8 +81,8 @@ result = await executor.execute(task, context)
 ### With ParallelExecutionEngine
 
 ```python
-from src.omni.execution.engine import ParallelExecutionEngine
-from src.omni.task.models import TaskGraph
+from omni.execution.engine import ParallelExecutionEngine
+from omni.task.models import TaskGraph
 
 # Create task graph
 graph = TaskGraph(tasks=[task1, task2, task3], dependencies={...})

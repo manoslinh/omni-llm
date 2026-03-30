@@ -31,7 +31,7 @@ def main():
     # 1. Show current models
     print("1. Listing current models:")
     print("=" * 50)
-    code, out, err = run_command("python3 -m src.omni.cli.main models list")
+    code, out, err = run_command("python3 -m omni.cli.main models list")
     if code == 0:
         print(out)
     else:
@@ -40,7 +40,7 @@ def main():
     # 2. Show current status
     print("\n2. Showing current model status:")
     print("=" * 50)
-    code, out, err = run_command("python3 -m src.omni.cli.main models status")
+    code, out, err = run_command("python3 -m omni.cli.main models status")
     if code == 0:
         # Show first few lines
         lines = out.split('\n')[:20]

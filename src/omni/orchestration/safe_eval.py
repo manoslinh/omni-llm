@@ -192,7 +192,7 @@ class SafeExpressionEvaluator:
 
         if isinstance(node, ast.Compare):
             left = self._eval_node(node.left, context)
-            for op, comparator in zip(node.ops, node.comparators):
+            for op, comparator in zip(node.ops, node.comparators, strict=True):
                 right = self._eval_node(comparator, context)
                 op_func = self._COMPARE_OPS.get(type(op))
                 if op_func is None:
@@ -226,7 +226,7 @@ class SafeExpressionEvaluator:
         if isinstance(node, ast.Dict):
             keys = [self._eval_node(k, context) for k in node.keys]
             values = [self._eval_node(v, context) for v in node.values]
-            return dict(zip(keys, values))
+            return dict(zip(keys, values, strict=True))
 
         raise UnsafeExpressionError(
             f"Unsupported AST node: {type(node).__name__}"

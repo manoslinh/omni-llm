@@ -1,0 +1,57 @@
+name: Debug a Complex Issue
+description: Debug a complex distributed system issue
+goal: Identify and fix a race condition in a distributed message queue system
+
+subtasks:
+  - id: logs
+    name: Log Analysis
+    description: Analyze system logs for error patterns and timing issues
+    type: analysis
+    estimated_tokens: 800
+    complexity: 0.5
+    
+  - id: code
+    name: Code Review
+    description: Review relevant source code for race conditions and synchronization issues
+    type: code_review
+    estimated_tokens: 1200
+    complexity: 0.7
+    
+  - id: tests
+    name: Test Analysis
+    description: Analyze test failures, coverage, and reproduce the issue
+    type: analysis
+    estimated_tokens: 600
+    complexity: 0.4
+    
+  - id: fix
+    name: Fix Implementation
+    description: Implement and test the fix with proper synchronization
+    type: coding
+    estimated_tokens: 1000
+    complexity: 0.6
+
+dependencies:
+  - from: logs
+    to: code
+  - from: code
+    to: tests
+  - from: tests
+    to: fix
+
+cost_rates:
+  analysis:
+    input: 0.8
+    output: 2.4
+  code_review:
+    input: 1.2
+    output: 3.6
+  coding:
+    input: 1.0
+    output: 3.0
+
+metadata:
+  estimated_total_tokens: 3600
+  typical_agents_needed: 4
+  parallelizable: false  # Sequential due to dependencies
+  educational_focus: dependency_management

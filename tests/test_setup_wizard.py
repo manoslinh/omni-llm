@@ -5,6 +5,7 @@ Tests for the interactive setup wizard.
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -401,7 +402,7 @@ class TestSetupWizard:
         mock_save_config.return_value = True
 
         # Make configure_provider actually add providers
-        def configure_provider_side_effect(provider_name: str, api_key: str, models: list[str], **kwargs) -> None:
+        def configure_provider_side_effect(provider_name: str, api_key: str, models: list[str], **kwargs: Any) -> None:
             wizard.configured_providers.append("OpenAI")
             wizard.configured_models.extend(models)
         mock_configure_provider.side_effect = configure_provider_side_effect

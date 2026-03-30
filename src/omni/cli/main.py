@@ -15,6 +15,7 @@ from ..models.mock_provider import MockProvider
 from ..models.provider import Message, MessageRole, ModelProvider
 from ..observability.cli import register_execute_command
 from ..task.models import Task, TaskType
+from .demo import run_demo
 
 # Import setup wizard
 SETUP_AVAILABLE = False
@@ -89,6 +90,22 @@ def setup() -> None:
 
     # Call the setup command
     setup_command()
+
+
+@cli.command()
+@click.option("--fast", "-f", is_flag=True, help="Run demo in fast mode (no delays)")
+@click.option("--silent", "-s", is_flag=True, help="Run without explanations")
+@click.option("--scenario", type=click.Choice(["build_web_app", "debug_complex_issue", "analyze_codebase", "custom_task"]),
+              help="Specify scenario to run")
+def demo(fast: bool, silent: bool, scenario: str | None) -> None:
+    """Interactive demo of multi-agent orchestration."""
+    try:
+        run_demo(fast=fast, silent=silent, scenario=scenario)
+    except KeyboardInterrupt:
+        click.echo("\nDemo cancelled by user")
+    except Exception as e:
+        click.echo(f"❌ Demo failed: {e}")
+        raise
 
 
 @cli.command()

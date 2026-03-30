@@ -26,13 +26,13 @@ class TestSubtaskType:
     """Tests for SubtaskType enum."""
 
     def test_values(self) -> None:
-        assert SubtaskType.PREPARATION == "preparation"
-        assert SubtaskType.ANALYSIS == "analysis"
-        assert SubtaskType.IMPLEMENTATION == "implementation"
-        assert SubtaskType.VALIDATION == "validation"
-        assert SubtaskType.INTEGRATION == "integration"
-        assert SubtaskType.CLEANUP == "cleanup"
-        assert SubtaskType.UNKNOWN == "unknown"
+        assert SubtaskType.PREPARATION.value == "preparation"
+        assert SubtaskType.ANALYSIS.value == "analysis"
+        assert SubtaskType.IMPLEMENTATION.value == "implementation"
+        assert SubtaskType.VALIDATION.value == "validation"
+        assert SubtaskType.INTEGRATION.value == "integration"
+        assert SubtaskType.CLEANUP.value == "cleanup"
+        assert SubtaskType.UNKNOWN.value == "unknown"
 
     def test_str(self) -> None:
         assert str(SubtaskType.PREPARATION) == "preparation"
@@ -740,7 +740,8 @@ class TestTaskDecompositionEngine:
 
         # After decomposition, task should have estimated complexity
         assert task.complexity is not None
-        assert task.complexity.overall_score > 1.0  # Should be estimated > default
+        complexity = task.complexity  # type: ignore[unreachable]
+        assert complexity.overall_score > 1.0  # Should be estimated > default
 
         # Should decompose into multiple subtasks
         assert result.total_subtasks > 1
@@ -768,7 +769,7 @@ class TestTaskDecompositionEngine:
         # Check subtask types distribution
         subtask_types = [st.subtask_type for st in result.task_graph.tasks.values()
                         if isinstance(st, Subtask)]
-        type_counts = {}
+        type_counts: dict[SubtaskType, int] = {}
         for st_type in subtask_types:
             type_counts[st_type] = type_counts.get(st_type, 0) + 1
 

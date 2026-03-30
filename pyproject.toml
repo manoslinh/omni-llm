@@ -57,6 +57,10 @@ omni = "omni.cli.main:main"
 [tool.ruff]
 target-version = "py311"
 line-length = 88
+exclude = [
+    "*.yaml",
+    "*.yml",
+]
 
 [tool.ruff.lint]
 select = [

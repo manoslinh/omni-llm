@@ -5,10 +5,8 @@ Covers file reading, search/replace logic, file creation, file deletion,
 applying batches of edits, edge cases, and error handling.
 """
 
-import asyncio
 import os
 from pathlib import Path
-from unittest.mock import AsyncMock
 
 import pytest
 

@@ -296,13 +296,11 @@ class EditApplier:
 
     async def _read_file(self, path: Path) -> str:
         """Read file content asynchronously."""
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, path.read_text, 'utf-8')
+        return await asyncio.to_thread(path.read_text, 'utf-8')
 
     async def _write_file(self, path: Path, content: str) -> None:
         """Write file content asynchronously."""
         # Create directory if it doesn't exist
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, path.write_text, content, 'utf-8')
+        await asyncio.to_thread(path.write_text, content, 'utf-8')

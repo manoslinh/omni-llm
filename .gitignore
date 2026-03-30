@@ -175,7 +175,18 @@ Thumbs.db
 test_quick.py
 .coverage.*
 test.py
-CONTEXT.md
-CLAUDE.md
-.claude/
-.claude-flow/
+
+=4.0.0
+=6.0.0
+None
+
+# Ruflo runtime
+.swarm/
+.claude-flow/data/
+.claude-flow/logs/
+.claude-flow/sessions/
+.mcp.json
+.claude/agents/
+.claude/skills/
+.claude/commands/
+.claude/helpers/

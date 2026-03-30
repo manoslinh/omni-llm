@@ -561,32 +561,9 @@ class ModelRouter:
         Returns:
             List of provider names
         """
-        if not self.config.provider_registry:
-            return []
-
-        # Normalize capability string
-        cap_name = capability
-        if cap_name.startswith("supports_"):
-            cap_name = cap_name[len("supports_"):]
-
-        capability_mapping = {
-            "streaming": "streaming",
-            "tools": "function_calling",
-            "function_calling": "function_calling",
-            "vision": "vision",
-            "audio": "audio",
-            "long_context": "long_context",
-            "embeddings": "embeddings",
-            "fine_tuning": "fine_tuning",
-            "batch_processing": "batch_processing",
-        }
-
-        mapped_cap = capability_mapping.get(cap_name, cap_name)
         try:
-            cap_enum = Capability(mapped_cap)
-            return self.config.provider_registry.get_providers_by_capability(cap_enum)
-        except ValueError:
-            logger.warning(f"Unknown capability: {capability}")
+            return self.find_providers_by_capability(capability)
+        except RuntimeError:
             return []
 
     def find_providers_by_capability(self, capability: str, value: bool = True) -> list[str]:

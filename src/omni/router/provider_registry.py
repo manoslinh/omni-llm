@@ -179,33 +179,7 @@ class ProviderRegistry:
         Raises:
             ValueError: If provider is already registered
         """
-        provider_name = provider.name
-
-        if provider_name in self._providers:
-            raise ValueError(f"Provider '{provider_name}' is already registered")
-
-        # Store provider instance
-        self._providers[provider_name] = provider
-
-        # Create or update metadata
-        if metadata is None:
-            metadata = ProviderMetadata(
-                name=provider_name,
-                provider_type=type(provider).__name__,
-                description=f"{provider_name} provider",
-            )
-
-        # Auto-discover capabilities if requested
-        if discover_capabilities:
-            self._discover_capabilities(provider_name, provider, metadata)
-
-        # Store metadata
-        self._metadata[provider_name] = metadata
-
-        # Update indices
-        self._update_indices(provider_name, metadata)
-
-        logger.info(f"Registered provider '{provider_name}' with {len(metadata.capabilities)} capabilities")
+        self.register_provider(provider.name, provider, metadata, discover_capabilities)
 
     def register_provider(
         self,

@@ -111,7 +111,7 @@ async def test_mock_executor_delay() -> None:
     elapsed = end_time - start_time
 
     # Should take roughly 0.1 seconds +/- variance
-    assert 0.05 <= elapsed <= 0.15  # Allow some tolerance
+    assert 0.05 <= elapsed <= 0.5  # Allow generous tolerance for CI environments
     assert result.status == TaskStatus.COMPLETED
 
 

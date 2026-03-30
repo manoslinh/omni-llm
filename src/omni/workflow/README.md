@@ -201,4 +201,4 @@ mypy src/omni/workflow/ --ignore-missing-imports
 ```
 
 ### Architecture Reference
-See `docs/P2-15-ARCHITECTURE.md` for complete design documentation.
+See `docs/workflow-orchestration.md` for complete design documentation.

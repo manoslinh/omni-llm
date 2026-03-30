@@ -1362,7 +1362,7 @@ tests/
 └── test_scheduling_integration.py  # End-to-end: policy + resources + adjustments
 
 docs/
-└── P2-16-ARCHITECTURE.md    # This document
+└── scheduling-architecture.md    # This document
 ```
 
 ---

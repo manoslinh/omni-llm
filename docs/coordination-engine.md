@@ -1334,7 +1334,7 @@ tests/
 └── test_coordination_engine.py  # End-to-end coordination
 
 docs/
-└── P2-14-ARCHITECTURE.md  # This document
+└── coordination-engine.md  # This document
 ```
 
 ## Implementation Roadmap

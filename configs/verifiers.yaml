@@ -1,3 +1,4 @@
+# Verifier pipeline configuration for Omni-LLM v0.1.2
 # Verifier configurations for Omni-LLM
 #
 # This file defines the verifiers to use in the verification pipeline.

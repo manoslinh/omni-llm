@@ -13,20 +13,13 @@
 ### Install
 
 ```bash
-# Using pip (any version)
+# From PyPI (when published)
 pip install omni-llm
 
-# Or pip3 on systems where pip points to Python 2
-pip3 install omni-llm
-
-# Or with pipx (isolated install, recommended)
-pipx install omni-llm
-
-# Or in a virtual environment
-python3 -m venv .venv
-source .venv/bin/activate    # Linux/macOS
-# .venv\Scripts\activate     # Windows
-pip install omni-llm
+# From source
+git clone https://github.com/manoslinh/omni-llm
+cd omni-llm
+pip install -e .
 ```
 
 Requires Python 3.11 or later. Check with `python3 --version`.
@@ -34,26 +27,25 @@ Requires Python 3.11 or later. Check with `python3 --version`.
 ### Setup and first run
 
 ```bash
-omni setup                        # interactive wizard -- configure providers and API keys
-omni demo                         # see multi-agent orchestration in action
-omni orchestrate "refactor auth"  # run a real task with automatic model routing
+# Setup (interactive wizard)
+omni setup
+
+# Try it with a local model (free, no API keys needed)
+omni run "explain what a Python decorator is" --model ollama/llama3
+
+# Or with a cloud model (needs API key from setup)
+omni run "explain what a Python decorator is" --model deepseek/deepseek-chat
+
+# See multi-agent orchestration in action
+omni demo
+
+# Plan a multi-agent task (dry run)
+omni orchestrate "add input validation to the CLI" --dry-run
 ```
 
 `omni setup` walks you through provider selection and API key configuration. API keys are saved locally to `~/.config/omni/config.yaml` and loaded automatically on each run.
 
 No keys? `omni demo` and `omni orchestrate` both fall back to a mock provider so you can explore immediately.
-
-### Using local models (Ollama)
-
-If you prefer running models locally without API keys:
-
-```bash
-# Install Ollama (https://ollama.com)
-ollama pull llama3              # or any model you prefer
-omni run "hello" --model ollama/llama3
-```
-
-The setup wizard also offers Ollama configuration during `omni setup`.
 
 ## What It Does
 
@@ -62,17 +54,6 @@ Omni-LLM is a CLI tool that orchestrates multiple LLMs for coding tasks. Instead
 - **Smart routing** -- architecture questions go to a strong reasoner, boilerplate goes to a fast cheap model
 - **Parallel execution** -- independent subtasks run concurrently across multiple agents
 - **Cost tracking** -- real-time per-task cost estimates with budget enforcement
-
-## Features
-
-| Feature | Description |
-|---------|-------------|
-| **Model routing** | Cost/quality-aware selection across providers with fallback chains |
-| **Task decomposition** | Breaks complex goals into a dependency graph of subtasks |
-| **Multi-agent orchestration** | Supervisor-worker pattern with parallel execution waves |
-| **Workflow templates** | Reusable YAML workflows for repeatable processes |
-| **Budget enforcement** | Per-session and daily spend limits |
-| **Observability** | Token usage, cost breakdown, and execution metrics |
 
 ## CLI Commands
 
@@ -92,27 +73,40 @@ Omni-LLM is a CLI tool that orchestrates multiple LLMs for coding tasks. Instead
 
 Run any command with `--help` for full options.
 
-## Architecture
+## Usage Examples
 
-```
-CLI
- |
- +-- Setup Wizard          configure providers and keys
- +-- Task Decomposition    break goals into subtask graphs
- +-- Model Router          cost/quality-aware model selection
- +-- Coordination Engine   assign agents, plan execution waves
- +-- Workflow Engine       YAML-driven reusable pipelines
- +-- Verification          lint + test + type-check + security
- +-- Observability         cost tracking, metrics, dashboards
+### Single model query
+```bash
+omni run "what is 2+2" --model ollama/qwen3.5:9b
+omni run "design a REST API" --model deepseek/deepseek-chat
+omni run "review this function" --mock   # no API key needed
 ```
 
-Core loop: **decompose -> route -> execute -> verify**.
+### Multi-agent orchestration
+```bash
+omni orchestrate "review the router module" --dry-run
+omni orchestrate "add error handling to parser.py"
+```
+
+### Interactive demo
+```bash
+omni demo
+omni demo --scenario build_web_app
+omni demo --scenario analyze_codebase
+```
+
+### Check system status
+```bash
+omni status
+omni models status
+omni router --detailed
+```
 
 ## Supported Providers
 
 | Provider | Example Models |
 |----------|---------------|
-| **OpenAI** | GPT-4o, GPT-4.1, o3-mini |
+| **OpenAI** | GPT-4o, GPT-4o-mini, GPT-4.1, o3-mini |
 | **Anthropic** | Claude Sonnet 4, Claude Haiku 3.5 |
 | **Google** | Gemini 2.5 Pro, Gemini 2.0 Flash |
 | **DeepSeek** | DeepSeek Chat, DeepSeek Coder |
@@ -126,21 +120,11 @@ Core loop: **decompose -> route -> execute -> verify**.
 ```bash
 git clone https://github.com/manoslinh/omni-llm
 cd omni-llm
-
-# Create a virtual environment (recommended)
-python3 -m venv .venv
-source .venv/bin/activate    # Linux/macOS
-# .venv\Scripts\activate     # Windows
-
-# Install in editable mode with dev dependencies
 pip install -e ".[dev]"
 
-# Run tests (1,200+ tests, 78% coverage)
-pytest
-
-# Lint and type check
-ruff check .
-mypy src/omni
+pytest              # run tests
+ruff check .        # lint
+mypy src/omni       # type check
 ```
 
 ## Documentation

@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # Try to import LiteLLM, but make it optional for testing
 try:
     import litellm
-    from litellm import token_counter
+    from litellm import cost_per_token, token_counter
     from litellm.exceptions import (
         AuthenticationError as LiteLLMAuthError,
     )
@@ -262,11 +262,12 @@ class LiteLLMProvider(ModelProvider):
         """
         try:
             # Use LiteLLM's cost tracking
-            cost = litellm.completion_cost(
+            prompt_cost, completion_cost_val = cost_per_token(
                 model=model,
                 prompt_tokens=input_tokens,
                 completion_tokens=output_tokens,
             )
+            cost = prompt_cost + completion_cost_val
             return cost
         except Exception as e:
             logger.warning(f"Failed to estimate cost for {model}: {e}")

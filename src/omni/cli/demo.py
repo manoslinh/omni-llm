@@ -82,9 +82,10 @@ class DemoResult:
 class DemoRunner:
     """Main demo runner class."""
 
-    def __init__(self, config: DemoConfig) -> None:
+    def __init__(self, config: DemoConfig, scenario_preselected: bool = False) -> None:
         """Initialize the demo runner."""
         self.config = config
+        self._scenario_preselected = scenario_preselected
         self.scenarios_dir = Path(__file__).parent.parent.parent / "examples" / "demo_scenarios"
         self.scenarios_dir.mkdir(parents=True, exist_ok=True)
 
@@ -600,9 +601,12 @@ class DemoRunner:
         """Run the demo."""
         self._show_welcome()
 
-        # Select scenario
-        scenario = self._select_scenario()
-        self.config.scenario = scenario
+        # Use pre-selected scenario from --scenario flag, or let user choose
+        if self._scenario_preselected:
+            scenario = self.config.scenario
+        else:
+            scenario = self._select_scenario()
+            self.config.scenario = scenario
 
         # Load scenario data
         if scenario == DemoScenario.CUSTOM_TASK:
@@ -671,7 +675,7 @@ def run_demo(fast: bool = False, silent: bool = False, scenario: str | None = No
     )
 
     # Run demo
-    runner = DemoRunner(config)
+    runner = DemoRunner(config, scenario_preselected=scenario is not None)
 
     try:
         result = runner.run()

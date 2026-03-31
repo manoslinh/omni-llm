@@ -98,13 +98,13 @@ providers:
       base_url: "http://localhost:11434"
       timeout: 60
     models:
-      ollama/llama2:
-        max_tokens: 4096
+      ollama/llama3:
+        max_tokens: 8192
+        temperature_range: [0.0, 1.0]
+      ollama/qwen3.5:
+        max_tokens: 32768
         temperature_range: [0.0, 1.0]
       ollama/codellama:
-        max_tokens: 4096
-        temperature_range: [0.0, 1.0]
-      ollama/mistral:
         max_tokens: 4096
         temperature_range: [0.0, 1.0]
 
@@ -208,15 +208,15 @@ cost_config:
       input: 0.28
       output: 0.42
       
-    ollama/llama2:
+    ollama/llama3:
       input: 0.00
       output: 0.00
-      
+
+    ollama/qwen3.5:
+      input: 0.00
+      output: 0.00
+
     ollama/codellama:
-      input: 0.00
-      output: 0.00
-      
-    ollama/mistral:
       input: 0.00
       output: 0.00
 

@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Code editing via SEARCH/REPLACE blocks (apply model suggestions to files)
 - Full orchestration execution (currently plans but doesn't execute edits)
 
+## [0.1.2] - 2026-03-31
+
+### Added
+- Thinking animation while waiting for LLM response (oscillating random characters)
+- Honest README reflecting current capabilities vs roadmap
+
 ## [0.1.1] - 2026-03-31
 
 ### Added

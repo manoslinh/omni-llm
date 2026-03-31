@@ -93,7 +93,7 @@ providers:
   ollama:
     type: litellm
     description: "Ollama local models via LiteLLM"
-    enabled: false  # Disabled by default, requires local Ollama installation
+    enabled: true  # Requires local Ollama installation (https://ollama.com)
     config:
       base_url: "http://localhost:11434"
       timeout: 60

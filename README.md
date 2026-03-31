@@ -51,9 +51,12 @@ No keys? `omni demo` and `omni orchestrate` both fall back to a mock provider so
 
 Omni-LLM is a CLI tool that orchestrates multiple LLMs for coding tasks. Instead of sending everything to one expensive model, it decomposes work into subtasks and routes each one to the most cost-effective model that meets quality requirements.
 
+- **Codebase-aware** -- automatically scans your project directory, detects language/framework, and injects file context into prompts (v0.1.1)
 - **Smart routing** -- architecture questions go to a strong reasoner, boilerplate goes to a fast cheap model
 - **Parallel execution** -- independent subtasks run concurrently across multiple agents
 - **Cost tracking** -- real-time per-task cost estimates with budget enforcement
+
+> **Current status (v0.1.1):** `omni run` reads your project and provides context-aware responses. Code editing (applying changes back to files) is planned for v0.2.
 
 ## CLI Commands
 
@@ -75,11 +78,20 @@ Run any command with `--help` for full options.
 
 ## Usage Examples
 
-### Single model query
+### Codebase-aware queries (v0.1.1)
 ```bash
-omni run "what is 2+2" --model ollama/qwen3.5:9b
-omni run "design a REST API" --model deepseek/deepseek-chat
-omni run "review this function" --mock   # no API key needed
+cd ~/my-project
+omni run "review this project and suggest improvements" --model ollama/qwen3.5:9b
+# Scans your project, detects language/framework, reads key files automatically
+
+omni run "explain the authentication flow" --model deepseek/deepseek-chat
+# Context-aware — the model sees your file structure and configs
+
+omni run "what is 2+2" --no-context --model ollama/qwen3.5:9b
+# Skip project scanning for quick one-off questions
+
+omni run "review this" --files src/App.tsx --files src/api.ts --model ollama/qwen3.5:9b
+# Include specific files instead of auto-detection
 ```
 
 ### Multi-agent orchestration

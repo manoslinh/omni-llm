@@ -7,15 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned
+- Code editing via SEARCH/REPLACE blocks (apply model suggestions to files)
+- Full orchestration execution (currently plans but doesn't execute edits)
+
+## [0.1.1] - 2026-03-31
+
+### Added
+- Codebase-aware context injection -- `omni run` now scans your project directory and injects file structure, language, framework, and key file contents into LLM prompts
+- `--no-context` flag to skip project scanning
+- `--files/-f` flag for explicit file inclusion
+- `--model/-m` flag on `orchestrate` and `workflow` commands
+- Helpful error messages showing required variables when workflow templates fail validation
+- Security deny-list (`.env`, `.pem`, credentials never sent to LLM)
+- Path traversal protection in context scanner
+- API key persistence -- keys saved by `omni setup` are loaded automatically
+- Safe expression evaluator replacing `eval()` in workflow conditions
+- pytest-cov enabled in CI (60% threshold, actual 78%)
+- Test gate in release workflow (tests must pass before PyPI publish)
+- Python 3.11/3.12/3.13 CI matrix
+- 51 context scanner tests, 48 edit_applier tests, 50 safe_eval tests
+
+### Fixed
+- `omni setup` now correctly passes API keys via environment variables (was passing as request parameters)
+- `omni --version` crash resolved
+- `omni demo --scenario` flag was being ignored
+- Suppressed noisy LiteLLM/httpx INFO logging in CLI output
+- Cost estimation using correct `cost_per_token` API
+
+### Changed
+- Unified duplicate ModelProvider ABCs into single canonical interface
+- Updated model configurations to current names (GPT-4o, Claude Sonnet 4, Gemini 2.5 Pro)
+- Removed 21 internal documentation files not suitable for open-source
+- Reorganized docs/ with descriptive filenames and documentation index
+- README rewritten with accurate quickstart and working examples
+
+## [0.1.0] - 2026-03-29
+
 ### Added
 - Multi-agent orchestration system
 - Workflow template engine
 - Task decomposition engine
 - Model router with cost optimization
 - Coordination engine for parallel execution
-- Result integrator for merging parallel outputs (ResultIntegrator verification is placeholder)
-- Comprehensive documentation
-- Example scripts for all new features
+- Result integrator for merging parallel outputs (verification is placeholder)
+- Example scripts for all features
 - CLI commands for orchestration workflows
 
 ## [0.2.0] - Phase 2: Orchestration (2026-03-29)

@@ -145,7 +145,7 @@ See [docs/README.md](docs/README.md) for detailed guides, workflow template auth
 
 ## Contributing
 
-Contributions welcome. Please see [CONTRIBUTING.md](docs/contributing.md) for guidelines.
+Contributions welcome. Please see [CONTRIBUTING.md](.github/CONTRIBUTING.md) for guidelines.
 
 ## License
 

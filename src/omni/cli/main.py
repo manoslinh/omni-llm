@@ -86,9 +86,21 @@ def cli() -> None:
 @click.option("--temperature", "-t", default=0.7, type=float, help="Temperature (0.0-2.0)")
 @click.option("--max-tokens", type=int, help="Maximum tokens to generate")
 @click.option("--mock", is_flag=True, help="Use mock provider for testing")
-def run(prompt: str, model: str, temperature: float, max_tokens: int | None, mock: bool) -> None:
+@click.option("--context", "-c", is_flag=True, default=True, help="Include project context (default: on)")
+@click.option("--no-context", is_flag=True, help="Disable project context injection")
+@click.option("--files", "-f", multiple=True, help="Specific files to include in context")
+def run(
+    prompt: str,
+    model: str,
+    temperature: float,
+    max_tokens: int | None,
+    mock: bool,
+    context: bool,
+    no_context: bool,
+    files: tuple[str, ...],
+) -> None:
     """Run a single prompt through the model."""
-    asyncio.run(_run_async(prompt, model, temperature, max_tokens, mock))
+    asyncio.run(_run_async(prompt, model, temperature, max_tokens, mock, context, no_context, files))
 
 
 @cli.command()
@@ -271,7 +283,10 @@ async def _run_async(
     model: str,
     temperature: float,
     max_tokens: int | None,
-    mock: bool
+    mock: bool,
+    context: bool = True,
+    no_context: bool = False,
+    files: tuple[str, ...] = (),
 ) -> None:
     """Async implementation of the run command."""
     try:
@@ -284,9 +299,41 @@ async def _run_async(
             provider = LiteLLMProvider()
             click.echo(f"🚀 Using LiteLLM provider with model: {model}")
 
-        # Create messages
+        # Build project context if enabled
+        project_context = ""
+        if context and not no_context:
+            try:
+                from ..core.context_scanner import ContextScanner
+
+                scanner = ContextScanner()
+                if files:
+                    project_context = scanner.read_files(list(files))
+                    click.echo(f"📂 Including {len(files)} file(s) in context")
+                else:
+                    ctx_result = scanner.scan()
+                    project_context = scanner.build_prompt_context()
+                    ctx_kb = len(project_context) / 1024
+                    lang_parts = [ctx_result.language]
+                    if ctx_result.framework:
+                        lang_parts.append(ctx_result.framework)
+                    lang_str = ", ".join(lang_parts)
+                    click.echo(
+                        f"📂 Scanned {ctx_result.file_count} files"
+                        f" ({lang_str})"
+                        f" — ~{ctx_kb:.1f} KB context injected"
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to scan project context: {e}")
+
+        # Create messages with context
+        system_content = "You are a helpful coding assistant."
+        if project_context:
+            system_content += (
+                f"\n\nHere is the current project context:\n{project_context}"
+            )
+
         messages = [
-            Message(role=MessageRole.SYSTEM, content="You are a helpful coding assistant."),
+            Message(role=MessageRole.SYSTEM, content=system_content),
             Message(role=MessageRole.USER, content=prompt),
         ]
 

@@ -10,15 +10,50 @@
 
 ## Quick Start
 
+### Install
+
 ```bash
+# Using pip (any version)
 pip install omni-llm
+
+# Or pip3 on systems where pip points to Python 2
+pip3 install omni-llm
+
+# Or with pipx (isolated install, recommended)
+pipx install omni-llm
+
+# Or in a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate    # Linux/macOS
+# .venv\Scripts\activate     # Windows
+pip install omni-llm
+```
+
+Requires Python 3.11 or later. Check with `python3 --version`.
+
+### Setup and first run
+
+```bash
 omni setup                        # interactive wizard -- configure providers and API keys
 omni demo                         # see multi-agent orchestration in action
 omni orchestrate "refactor auth"  # run a real task with automatic model routing
 ```
 
-`omni setup` walks you through provider selection and API key configuration.
+`omni setup` walks you through provider selection and API key configuration. API keys are saved locally to `~/.config/omni/config.yaml` and loaded automatically on each run.
+
 No keys? `omni demo` and `omni orchestrate` both fall back to a mock provider so you can explore immediately.
+
+### Using local models (Ollama)
+
+If you prefer running models locally without API keys:
+
+```bash
+# Install Ollama (https://ollama.com)
+ollama pull llama3              # or any model you prefer
+omni run "hello" --model ollama/llama3
+```
+
+The setup wizard also offers Ollama configuration during `omni setup`.
 
 ## What It Does
 
@@ -91,11 +126,21 @@ Core loop: **decompose -> route -> execute -> verify**.
 ```bash
 git clone https://github.com/manoslinh/omni-llm
 cd omni-llm
+
+# Create a virtual environment (recommended)
+python3 -m venv .venv
+source .venv/bin/activate    # Linux/macOS
+# .venv\Scripts\activate     # Windows
+
+# Install in editable mode with dev dependencies
 pip install -e ".[dev]"
 
-pytest                  # run tests
-ruff check .            # lint
-mypy src/omni           # type check
+# Run tests (1,200+ tests, 78% coverage)
+pytest
+
+# Lint and type check
+ruff check .
+mypy src/omni
 ```
 
 ## Documentation

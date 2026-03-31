@@ -175,9 +175,9 @@ class SetupWizard:
                     f"Testing {provider_name} connection...", total=None
                 )
 
-                # Create provider with API key in config
-                provider_config = {env_var: api_key}
-                provider = LiteLLMProvider(config=provider_config)
+                # Set API key in environment for LiteLLM to pick up
+                os.environ[env_var] = api_key
+                provider = LiteLLMProvider()
 
                 # Make a minimal API call to validate the key
                 # Use a simple completion with a trivial prompt
@@ -198,8 +198,6 @@ class SetupWizard:
                             model=test_model,
                             temperature=0.1,
                             max_tokens=1,
-                            # Pass API key in the call parameters
-                            **{env_var: api_key}
                         )
 
                         # If we get here, the key is valid

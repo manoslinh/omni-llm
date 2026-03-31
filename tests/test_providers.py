@@ -310,6 +310,7 @@ class TestLiteLLMProvider:
         """Mock LiteLLM module."""
         with patch('omni.models.litellm_provider.litellm') as mock_litellm, \
              patch('omni.models.litellm_provider.token_counter') as mock_token_counter, \
+             patch('omni.models.litellm_provider.cost_per_token') as mock_cost_per_token, \
              patch('omni.models.litellm_provider.LITELLM_AVAILABLE', True):
 
             # Mock completion response
@@ -329,13 +330,14 @@ class TestLiteLLMProvider:
             mock_response.usage = mock_usage
 
             mock_litellm.completion.return_value = mock_response
-            mock_litellm.completion_cost.return_value = 0.0015  # $0.0015
+            mock_cost_per_token.return_value = (0.001, 0.0005)  # (prompt_cost, completion_cost)
 
             # Mock token counter
             mock_token_counter.return_value = 25
 
             yield {
                 'litellm': mock_litellm,
+                'cost_per_token': mock_cost_per_token,
                 'token_counter': mock_token_counter,
                 'response': mock_response,
             }
@@ -565,16 +567,16 @@ class TestLiteLLMProvider:
 
         cost = provider.estimate_cost(input_tokens, output_tokens, "openai/gpt-4")
 
-        # Verify LiteLLM cost calculation was called
-        mock_litellm['litellm'].completion_cost.assert_called_once_with(
+        # Verify cost_per_token was called
+        mock_litellm['cost_per_token'].assert_called_once_with(
             model="openai/gpt-4",
             prompt_tokens=input_tokens,
             completion_tokens=output_tokens,
         )
-        assert cost == 0.0015
+        assert cost == 0.0015  # 0.001 + 0.0005
 
         # Test fallback when cost calculation fails
-        mock_litellm['litellm'].completion_cost.side_effect = Exception("Cost failed")
+        mock_litellm['cost_per_token'].side_effect = Exception("Cost failed")
 
         cost = provider.estimate_cost(input_tokens, output_tokens, "openai/gpt-4")
 

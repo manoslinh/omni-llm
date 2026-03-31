@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import sys
+from pathlib import Path
 from typing import Any
 
 import click
@@ -41,9 +42,13 @@ except ImportError:
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+# Suppress verbose LiteLLM logging
+logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+logging.getLogger("litellm").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
@@ -853,8 +858,26 @@ async def _model_status_async(query: str | None, provider_filter: str | None, de
         sys.exit(1)
 
 
+def _load_saved_api_keys() -> None:
+    """Load API keys from saved config into environment variables."""
+    config_path = Path.home() / ".config" / "omni" / "config.yaml"
+    if not config_path.exists():
+        return
+    try:
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+        if not config:
+            return
+        for key, value in config.get("api_keys", {}).items():
+            if key not in os.environ and value:
+                os.environ[key] = value
+    except Exception:
+        pass  # Don't fail CLI startup over config issues
+
+
 def main() -> None:
     """Main entry point."""
+    _load_saved_api_keys()
     # Register execute command group
     register_execute_command(cli)
     cli()

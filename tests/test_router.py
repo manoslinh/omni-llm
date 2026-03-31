@@ -686,7 +686,7 @@ class TestIntegration:
         config = RouterConfig(
             strategies={"cost_optimized": strategy},
             providers={"deepseek-chat": mock_provider},
-            fallback_config=FallbackConfig(chain=["deepseek-chat", "gpt-3.5-turbo"]),
+            fallback_config=FallbackConfig(chain=["deepseek-chat", "gpt-4o-mini"]),
         )
         router = ModelRouter(config)
 

@@ -214,7 +214,7 @@ class TestFallbackConfig:
 
     def test_valid_chain(self) -> None:
         cfg = FallbackConfig(
-            chain=["gpt-4", "claude-3-sonnet", "deepseek-chat"],
+            chain=["gpt-4o", "claude-sonnet-4", "deepseek-chat"],
             max_retries=2,
             backoff_seconds=0.5,
         )

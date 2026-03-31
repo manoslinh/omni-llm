@@ -82,7 +82,7 @@ def cli() -> None:
 
 @cli.command()
 @click.argument("prompt")
-@click.option("--model", "-m", default="openai/gpt-3.5-turbo", help="Model to use")
+@click.option("--model", "-m", default="openai/gpt-4o-mini", help="Model to use")
 @click.option("--temperature", "-t", default=0.7, type=float, help="Temperature (0.0-2.0)")
 @click.option("--max-tokens", type=int, help="Maximum tokens to generate")
 @click.option("--mock", is_flag=True, help="Use mock provider for testing")

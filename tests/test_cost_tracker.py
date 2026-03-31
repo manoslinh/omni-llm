@@ -18,14 +18,14 @@ def test_basic_tracking():
 
     # Create cost rates
     cost_rates = {
-        "openai/gpt-4": CostRate(input_per_million=30.00, output_per_million=60.00),
-        "openai/gpt-3.5-turbo": CostRate(input_per_million=0.50, output_per_million=1.50),
+        "openai/gpt-4o": CostRate(input_per_million=30.00, output_per_million=60.00),
+        "openai/gpt-4o-mini": CostRate(input_per_million=0.50, output_per_million=1.50),
     }
 
     tracker = CostTracker(cost_rates)
 
     # Track a request
-    record = tracker.track("openai/gpt-4", input_tokens=1000, output_tokens=500)
+    record = tracker.track("openai/gpt-4o", input_tokens=1000, output_tokens=500)
 
     # Verify calculations
     expected_input_cost = (1000 / 1_000_000) * 30.00  # $0.00003
@@ -38,7 +38,7 @@ def test_basic_tracking():
     assert record.input_tokens == 1000
     assert record.output_tokens == 500
     assert record.total_tokens == 1500
-    assert record.model == "openai/gpt-4"
+    assert record.model == "openai/gpt-4o"
 
     print("✓ Basic tracking test passed")
 
@@ -48,27 +48,27 @@ def test_multiple_requests():
     print("Testing multiple requests...")
 
     cost_rates = {
-        "openai/gpt-4": CostRate(input_per_million=30.00, output_per_million=60.00),
-        "openai/gpt-3.5-turbo": CostRate(input_per_million=0.50, output_per_million=1.50),
+        "openai/gpt-4o-mini": CostRate(input_per_million=0.50, output_per_million=1.50),
+        "openai/gpt-4o": CostRate(input_per_million=30.00, output_per_million=60.00),
     }
 
     tracker = CostTracker(cost_rates)
 
     # Track multiple requests
-    tracker.track("openai/gpt-4", input_tokens=1000, output_tokens=500)
-    tracker.track("openai/gpt-3.5-turbo", input_tokens=2000, output_tokens=1000)
+    tracker.track("openai/gpt-4o", input_tokens=1000, output_tokens=500)
+    tracker.track("openai/gpt-4o-mini", input_tokens=2000, output_tokens=1000)
 
     totals = tracker.get_total()
 
     # Calculate expected totals
     gpt4_input_cost = (1000 / 1_000_000) * 30.00
     gpt4_output_cost = (500 / 1_000_000) * 60.00
-    gpt35_input_cost = (2000 / 1_000_000) * 0.50
-    gpt35_output_cost = (1000 / 1_000_000) * 1.50
+    gpt4o_mini_input_cost = (2000 / 1_000_000) * 0.50
+    gpt4o_mini_output_cost = (1000 / 1_000_000) * 1.50
 
-    expected_total_cost = gpt4_input_cost + gpt4_output_cost + gpt35_input_cost + gpt35_output_cost
-    expected_total_input_cost = gpt4_input_cost + gpt35_input_cost
-    expected_total_output_cost = gpt4_output_cost + gpt35_output_cost
+    expected_total_cost = gpt4_input_cost + gpt4_output_cost + gpt4o_mini_input_cost + gpt4o_mini_output_cost
+    expected_total_input_cost = gpt4_input_cost + gpt4o_mini_input_cost
+    expected_total_output_cost = gpt4_output_cost + gpt4o_mini_output_cost
 
     assert abs(totals["total_cost"] - expected_total_cost) < 1e-10
     assert abs(totals["total_input_cost"] - expected_total_input_cost) < 1e-10
@@ -85,11 +85,11 @@ def test_reset():
     print("Testing reset...")
 
     cost_rates = {
-        "openai/gpt-4": CostRate(input_per_million=30.00, output_per_million=60.00),
+        "openai/gpt-4o": CostRate(input_per_million=30.00, output_per_million=60.00),
     }
 
     tracker = CostTracker(cost_rates)
-    tracker.track("openai/gpt-4", input_tokens=1000, output_tokens=500)
+    tracker.track("openai/gpt-4o", input_tokens=1000, output_tokens=500)
 
     assert len(tracker) == 1
     assert tracker.get_total()["total_cost"] > 0
@@ -128,12 +128,12 @@ def test_get_records():
     print("Testing get_records...")
 
     cost_rates = {
-        "openai/gpt-4": CostRate(input_per_million=30.00, output_per_million=60.00),
+        "openai/gpt-4o": CostRate(input_per_million=30.00, output_per_million=60.00),
     }
 
     tracker = CostTracker(cost_rates)
-    tracker.track("openai/gpt-4", input_tokens=1000, output_tokens=500)
-    tracker.track("openai/gpt-4", input_tokens=2000, output_tokens=1000)
+    tracker.track("openai/gpt-4o", input_tokens=1000, output_tokens=500)
+    tracker.track("openai/gpt-4o", input_tokens=2000, output_tokens=1000)
 
     records = tracker.get_records()
 
@@ -150,14 +150,14 @@ def test_integration_with_provider():
 
     # Simulate provider cost rates
     provider_cost_rates = {
-        "openai/gpt-4": CostRate(input_per_million=30.00, output_per_million=60.00),
-        "openai/gpt-3.5-turbo": CostRate(input_per_million=0.50, output_per_million=1.50),
+        "openai/gpt-4o": CostRate(input_per_million=30.00, output_per_million=60.00),
+        "openai/gpt-4o-mini": CostRate(input_per_million=0.50, output_per_million=1.50),
     }
 
     tracker = CostTracker(provider_cost_rates)
 
     # Track using the same cost rates
-    record = tracker.track("openai/gpt-4", input_tokens=1000, output_tokens=500)
+    record = tracker.track("openai/gpt-4o", input_tokens=1000, output_tokens=500)
 
     # Verify cost calculation matches provider's cost_per_token
     expected_input_cost = (1000 / 1_000_000) * 30.00

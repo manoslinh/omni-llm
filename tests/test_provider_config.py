@@ -47,16 +47,16 @@ def test_config_loading():
 
         # Check default model
         default_model = config.get_default_model()
-        assert default_model == "openai/gpt-4", f"Expected 'openai/gpt-4', got '{default_model}'"
+        assert default_model == "openai/gpt-4o", f"Expected 'openai/gpt-4o', got '{default_model}'"
 
         # Check model support
-        assert default_provider.is_model_supported("openai/gpt-4"), "Model 'openai/gpt-4' not supported"
+        assert default_provider.is_model_supported("openai/gpt-4o"), "Model 'openai/gpt-4o' not supported"
 
         # Check cost configuration
-        gpt4_cost = config.get_model_cost("openai/gpt-4")
-        assert gpt4_cost is not None, "Cost configuration for 'openai/gpt-4' not found"
-        assert gpt4_cost.input_per_million == 30.00, f"Expected input cost 30.00, got {gpt4_cost.input_per_million}"
-        assert gpt4_cost.output_per_million == 60.00, f"Expected output cost 60.00, got {gpt4_cost.output_per_million}"
+        gpt4o_cost = config.get_model_cost("openai/gpt-4o")
+        assert gpt4o_cost is not None, "Cost configuration for 'openai/gpt-4o' not found"
+        assert gpt4o_cost.input_per_million == 2.50, f"Expected input cost 2.50, got {gpt4o_cost.input_per_million}"
+        assert gpt4o_cost.output_per_million == 10.00, f"Expected output cost 10.00, got {gpt4o_cost.output_per_million}"
 
         # Check validation (should pass with dummy env vars)
         errors = config.validate()
@@ -148,20 +148,20 @@ def test_provider_config_class():
 def test_cost_estimation():
     """Test cost estimation."""
     config = get_default_providers_config()
-    gpt4_cost = config.get_model_cost("openai/gpt-4")
+    gpt4o_cost = config.get_model_cost("openai/gpt-4o")
 
     # Estimate cost for 1000 input tokens and 500 output tokens
     input_tokens = 1000
     output_tokens = 500
-    estimated_cost = gpt4_cost.estimate_cost(input_tokens, output_tokens)
+    estimated_cost = gpt4o_cost.estimate_cost(input_tokens, output_tokens)
 
-    # Expected cost: (1000/1M * 30) + (500/1M * 60) = 0.00003 + 0.00003 = 0.00006
-    expected_cost = (1000 / 1_000_000 * 30.0) + (500 / 1_000_000 * 60.0)
+    # Expected cost: (1000/1M * 2.50) + (500/1M * 10.00) = 0.0000025 + 0.000005 = 0.0000075
+    expected_cost = (1000 / 1_000_000 * 2.50) + (500 / 1_000_000 * 10.00)
     tolerance = 0.000001  # Allow for floating point errors
 
     assert abs(estimated_cost - expected_cost) < tolerance, \
         f"Expected cost ~{expected_cost:.6f}, got {estimated_cost:.6f}"
 
     # Test with zero tokens
-    zero_cost = gpt4_cost.estimate_cost(0, 0)
+    zero_cost = gpt4o_cost.estimate_cost(0, 0)
     assert zero_cost == 0.0, f"Expected 0.0 for zero tokens, got {zero_cost}"

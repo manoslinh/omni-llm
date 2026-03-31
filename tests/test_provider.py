@@ -47,11 +47,11 @@ class TestMockProvider:
 
         result = await provider.complete(
             messages=messages,
-            model="anthropic/claude-3-sonnet",
+            model="anthropic/claude-sonnet-4",
         )
 
         assert result.content is not None
-        assert result.model == "anthropic/claude-3-sonnet"
+        assert result.model == "anthropic/claude-sonnet-4"
 
     @pytest.mark.asyncio
     async def test_complete_custom_response(self, provider):
@@ -110,8 +110,8 @@ class TestMockProvider:
 
         assert isinstance(models, list)
         assert len(models) > 0
-        assert "openai/gpt-4" in models
-        assert "anthropic/claude-3-sonnet-20240229" in models
+        assert "openai/gpt-4o" in models
+        assert "anthropic/claude-sonnet-4-20250514" in models
         assert "deepseek/deepseek-chat" in models
 
     @pytest.mark.asyncio

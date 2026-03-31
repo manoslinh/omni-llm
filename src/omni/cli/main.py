@@ -74,7 +74,7 @@ def _auto_detect_providers() -> dict[str, str]:
 
 
 @click.group()
-@click.version_option()
+@click.version_option(package_name="omni-llm")
 def cli() -> None:
     """Omni-LLM: The orchestration OS for AI-assisted development."""
     pass

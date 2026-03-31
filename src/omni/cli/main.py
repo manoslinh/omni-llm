@@ -339,16 +339,40 @@ async def _run_async(
 
         click.echo(f"\n📤 Sending prompt ({len(prompt)} chars)...")
 
-        # Get completion
-        result = await provider.complete(
-            messages=messages,
-            model=model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
+        # Get completion with thinking animation
+        async def _thinking_animation() -> None:
+            """Show random characters animation while waiting for response."""
+            import random
+            import sys
+            chars = "abcdefghijklmnopqrstuvwxyz0123456789!@#$%&*+=?<>"
+            width = 16
+            try:
+                while True:
+                    noise = "".join(random.choice(chars) for _ in range(width))
+                    sys.stdout.write(f"\r   🧠 {noise}")
+                    sys.stdout.flush()
+                    await asyncio.sleep(0.05)
+            except asyncio.CancelledError:
+                sys.stdout.write("\r" + " " * (width + 8) + "\r")
+                sys.stdout.flush()
+
+        animation_task = asyncio.create_task(_thinking_animation())
+        try:
+            result = await provider.complete(
+                messages=messages,
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+        finally:
+            animation_task.cancel()
+            try:
+                await animation_task
+            except asyncio.CancelledError:
+                pass
 
         # Show results
-        click.echo("\n📥 Response:")
+        click.echo("📥 Response:")
         click.echo("─" * 50)
         click.echo(result.content)
         click.echo("─" * 50)

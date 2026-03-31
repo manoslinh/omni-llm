@@ -256,8 +256,8 @@ class TestMockProvider:
 
         assert isinstance(models, list)
         assert len(models) > 0
-        assert "openai/gpt-4" in models
-        assert "anthropic/claude-3-sonnet-20240229" in models
+        assert "openai/gpt-4o" in models
+        assert "anthropic/claude-sonnet-4-20250514" in models
         assert "deepseek/deepseek-chat" in models
 
     @pytest.mark.asyncio
@@ -418,11 +418,11 @@ class TestLiteLLMProvider:
 
         result = await provider.complete(
             messages=messages,
-            model="anthropic/claude-3-sonnet-20240229",
+            model="anthropic/claude-sonnet-4-20250514",
         )
 
         assert result.content == "Mock response"
-        assert result.model == "anthropic/claude-3-sonnet-20240229"
+        assert result.model == "anthropic/claude-sonnet-4-20250514"
 
         # Verify messages were converted correctly
         call_args = mock_litellm['litellm'].completion.call_args
@@ -586,26 +586,26 @@ class TestLiteLLMProvider:
     def test_get_capabilities(self, provider):
         """Test getting model capabilities."""
         # Test caching
-        capabilities1 = provider.get_capabilities("openai/gpt-4")
-        capabilities2 = provider.get_capabilities("openai/gpt-4")
+        capabilities1 = provider.get_capabilities("openai/gpt-4o")
+        capabilities2 = provider.get_capabilities("openai/gpt-4o")
 
         assert capabilities1 is capabilities2  # Same object from cache
 
         # Test different models have different capabilities
-        gpt4_capabilities = provider.get_capabilities("openai/gpt-4")
-        gpt35_capabilities = provider.get_capabilities("openai/gpt-3.5-turbo")
+        gpt4o_capabilities = provider.get_capabilities("openai/gpt-4o")
+        gpt4o_mini_capabilities = provider.get_capabilities("openai/gpt-4o-mini")
 
-        assert gpt4_capabilities.supports_edit_format == "editblock"
-        assert gpt35_capabilities.supports_edit_format == "diff"
+        assert gpt4o_capabilities.supports_edit_format == "editblock"
+        assert gpt4o_mini_capabilities.supports_edit_format == "diff"
 
-        # Test Claude 3 capabilities
-        claude_capabilities = provider.get_capabilities("anthropic/claude-3-sonnet-20240229")
+        # Test Claude Sonnet 4 capabilities
+        claude_capabilities = provider.get_capabilities("anthropic/claude-sonnet-4-20250514")
         assert claude_capabilities.max_context_tokens == 200_000
         assert claude_capabilities.supports_tools is True
         assert claude_capabilities.supports_vision is True
 
-        # Test Gemini 1.5 capabilities
-        gemini_capabilities = provider.get_capabilities("google/gemini-1.5-pro-latest")
+        # Test Gemini 2.5 Pro capabilities
+        gemini_capabilities = provider.get_capabilities("google/gemini-2.5-pro-preview-03-25")
         assert gemini_capabilities.max_context_tokens == 1_000_000
 
         # Test default capabilities
@@ -622,10 +622,10 @@ class TestLiteLLMProvider:
 
         # Check for common models
         expected_models = [
-            "openai/gpt-4",
-            "openai/gpt-3.5-turbo",
-            "anthropic/claude-3-sonnet-20240229",
-            "google/gemini-1.5-pro-latest",
+            "openai/gpt-4o",
+            "openai/gpt-4o-mini",
+            "anthropic/claude-sonnet-4-20250514",
+            "google/gemini-2.5-pro-preview-03-25",
             "deepseek/deepseek-chat",
         ]
 

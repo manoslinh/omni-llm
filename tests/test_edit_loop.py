@@ -37,7 +37,7 @@ class TestEditLoop:
         """Test running a basic edit cycle."""
         result = await edit_loop.run_cycle(
             user_input="Create a function that adds two numbers",
-            model="openai/gpt-4",
+            model="openai/gpt-4o",
             temperature=0.7,
         )
 
@@ -54,7 +54,7 @@ class TestEditLoop:
         # (Our mock setup doesn't actually run verifiers, so this is a basic test)
         result = await edit_loop.run_cycle(
             user_input="Test with reflection",
-            model="openai/gpt-4",
+            model="openai/gpt-4o",
         )
 
         # Should not have reflections since we don't have real verifiers
@@ -126,7 +126,7 @@ class TestEditLoop:
     async def test_close(self, edit_loop):
         """Test closing the EditLoop."""
         # Run a cycle to accumulate some cost
-        await edit_loop.run_cycle("Test", model="openai/gpt-4")
+        await edit_loop.run_cycle("Test", model="openai/gpt-4o")
 
         # Close should work without errors
         await edit_loop.close()

@@ -37,14 +37,14 @@ def temp_config_dir():
                     "enabled": True,
                     "config": {},
                     "models": {
-                        "openai/gpt-4": {"max_tokens": 8192},
-                        "openai/gpt-3.5-turbo": {"max_tokens": 16385},
+                        "openai/gpt-4o": {"max_tokens": 128000},
+                        "openai/gpt-4o-mini": {"max_tokens": 128000},
                     }
                 }
             },
             "defaults": {
                 "provider": "litellm",
-                "model": "openai/gpt-4"
+                "model": "openai/gpt-4o"
             },
             "api_keys": {
                 "OPENAI_API_KEY": "${OPENAI_API_KEY}"

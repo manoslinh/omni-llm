@@ -68,7 +68,7 @@ class EditLoop:
     async def run_cycle(
         self,
         user_input: str,
-        model: str = "openai/gpt-3.5-turbo",
+        model: str = "openai/gpt-4o-mini",
         temperature: float = 0.7,
         max_tokens: int | None = None,
         files_to_include: list[str] | None = None,

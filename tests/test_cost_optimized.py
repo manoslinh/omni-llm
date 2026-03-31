@@ -35,7 +35,7 @@ class TestCostOptimizedInit:
     def test_loads_models(self, strategy: CostOptimizedStrategy) -> None:
         """Strategy should load model definitions from models.yaml."""
         assert len(strategy._models) > 0
-        assert "gpt-4" in strategy._models
+        assert "gpt-4o" in strategy._models
         assert "deepseek-chat" in strategy._models
 
     def test_loads_routing_rules(self, strategy: CostOptimizedStrategy) -> None:
@@ -69,10 +69,10 @@ class TestSelectModel:
         # Architecture has min_quality=0.8, so cheap models like deepseek
         # (quality ~0.6 for architecture) should not be selected
         assert result.model_id in [
-            "claude-3-sonnet",
-            "gpt-4",
-            "gemini-1.5-pro",
-            "gpt-4-turbo",
+            "claude-sonnet-4",
+            "gpt-4o",
+            "gemini-2.5-pro",
+            "gpt-4.1",
         ]
 
     def test_coding_task_picks_cheap_model(
@@ -87,8 +87,8 @@ class TestSelectModel:
         assert result.model_id in [
             "deepseek-chat",
             "deepseek-coder",
-            "gpt-3.5-turbo",
-            "claude-3-haiku",
+            "gpt-4o-mini",
+            "claude-haiku-3.5",
         ]
 
     def test_testing_task_picks_cheap_model(
@@ -102,8 +102,8 @@ class TestSelectModel:
         # Testing has low min_quality, so cheaper models qualify
         assert result.model_id in [
             "deepseek-coder",
-            "gpt-3.5-turbo",
-            "claude-3-haiku",
+            "gpt-4o-mini",
+            "claude-haiku-3.5",
             "deepseek-chat",
         ]
 
@@ -116,7 +116,7 @@ class TestSelectModel:
 
         assert result is not None
         # Only top-priority models should qualify
-        assert result.model_id in ["gpt-4", "claude-3-sonnet", "gemini-1.5-pro"]
+        assert result.model_id in ["gpt-4o", "claude-sonnet-4", "gemini-2.5-pro"]
 
     def test_result_has_reason(self, strategy: CostOptimizedStrategy) -> None:
         """ModelSelection should include a human-readable reason."""

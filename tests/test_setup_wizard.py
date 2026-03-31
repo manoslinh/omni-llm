@@ -160,9 +160,9 @@ class TestSetupWizard:
         # Mock provider
         mock_provider = Mock()
         mock_provider.list_models.return_value = [
-            "openai/gpt-4",
-            "openai/gpt-3.5-turbo",
-            "anthropic/claude-3",
+            "openai/gpt-4o",
+            "openai/gpt-4o-mini",
+            "anthropic/claude-sonnet-4",
         ]
         # Mock complete method
         mock_provider.complete = AsyncMock()
@@ -177,9 +177,9 @@ class TestSetupWizard:
         )
 
         assert success is True
-        assert "openai/gpt-4" in models
-        assert "openai/gpt-3.5-turbo" in models
-        assert "anthropic/claude-3" not in models  # Should be filtered out
+        assert "openai/gpt-4o" in models
+        assert "openai/gpt-4o-mini" in models
+        assert "anthropic/claude-sonnet-4" not in models  # Should be filtered out
 
     @pytest.mark.asyncio
     @patch("omni.cli.setup.os.environ", {})
@@ -230,7 +230,7 @@ class TestSetupWizard:
         """Test configuring OpenAI provider."""
         wizard = SetupWizard()
         api_key = "test-openai-key"
-        models = ["openai/gpt-4", "openai/gpt-3.5-turbo"]
+        models = ["openai/gpt-4o", "openai/gpt-4o-mini"]
 
         wizard._configure_provider("openai", api_key, models)
 
@@ -244,23 +244,23 @@ class TestSetupWizard:
         assert provider["enabled"] is True
 
         # Check models
-        assert "openai/gpt-4" in provider["models"]
-        assert "openai/gpt-3.5-turbo" in provider["models"]
+        assert "openai/gpt-4o" in provider["models"]
+        assert "openai/gpt-4o-mini" in provider["models"]
 
         # Check cost config
-        assert "openai/gpt-4" in wizard.new_config["cost_config"]["rates"]
-        assert "openai/gpt-3.5-turbo" in wizard.new_config["cost_config"]["rates"]
+        assert "openai/gpt-4o" in wizard.new_config["cost_config"]["rates"]
+        assert "openai/gpt-4o-mini" in wizard.new_config["cost_config"]["rates"]
 
         # Check configured providers and models
         assert "OpenAI" in wizard.configured_providers
-        assert "openai/gpt-4" in wizard.configured_models
-        assert "openai/gpt-3.5-turbo" in wizard.configured_models
+        assert "openai/gpt-4o" in wizard.configured_models
+        assert "openai/gpt-4o-mini" in wizard.configured_models
 
     def test_configure_provider_anthropic(self) -> None:
         """Test configuring Anthropic provider."""
         wizard = SetupWizard()
         api_key = "test-anthropic-key"
-        models = ["anthropic/claude-3-opus", "anthropic/claude-3-haiku"]
+        models = ["anthropic/claude-sonnet-4", "anthropic/claude-haiku-3.5"]
 
         wizard._configure_provider("anthropic", api_key, models)
 
@@ -274,17 +274,17 @@ class TestSetupWizard:
         assert provider["enabled"] is True
 
         # Check models
-        assert "anthropic/claude-3-opus" in provider["models"]
-        assert "anthropic/claude-3-haiku" in provider["models"]
+        assert "anthropic/claude-sonnet-4" in provider["models"]
+        assert "anthropic/claude-haiku-3.5" in provider["models"]
 
         # Check cost config
-        assert "anthropic/claude-3-opus" in wizard.new_config["cost_config"]["rates"]
-        assert "anthropic/claude-3-haiku" in wizard.new_config["cost_config"]["rates"]
+        assert "anthropic/claude-sonnet-4" in wizard.new_config["cost_config"]["rates"]
+        assert "anthropic/claude-haiku-3.5" in wizard.new_config["cost_config"]["rates"]
 
         # Check configured providers and models
         assert "Anthropic" in wizard.configured_providers
-        assert "anthropic/claude-3-opus" in wizard.configured_models
-        assert "anthropic/claude-3-haiku" in wizard.configured_models
+        assert "anthropic/claude-sonnet-4" in wizard.configured_models
+        assert "anthropic/claude-haiku-3.5" in wizard.configured_models
 
     @patch("omni.cli.setup.Confirm.ask")
     def test_configure_local_models_with_ollama(self, mock_confirm: Mock) -> None:
@@ -364,9 +364,9 @@ class TestSetupWizard:
         wizard = SetupWizard()
         wizard.configured_providers = ["OpenAI", "Anthropic"]
         wizard.configured_models = [
-            "openai/gpt-4",
-            "openai/gpt-3.5-turbo",
-            "anthropic/claude-3-opus",
+            "openai/gpt-4o",
+            "openai/gpt-4o-mini",
+            "anthropic/claude-sonnet-4",
         ]
 
         # Mock console.print to capture output
@@ -631,30 +631,30 @@ class TestSetupWizard:
         """Test getting cost configurations for providers."""
         wizard = SetupWizard()
 
-        # Test OpenAI GPT-4
-        gpt4_cost = wizard._get_cost_config("openai", "openai/gpt-4")
-        assert gpt4_cost["input"] == 30.00
-        assert gpt4_cost["output"] == 60.00
+        # Test OpenAI GPT-4o
+        gpt4o_cost = wizard._get_cost_config("openai", "openai/gpt-4o")
+        assert gpt4o_cost["input"] == 2.50
+        assert gpt4o_cost["output"] == 10.00
 
-        # Test OpenAI GPT-3.5
-        gpt35_cost = wizard._get_cost_config("openai", "openai/gpt-3.5-turbo")
-        assert gpt35_cost["input"] == 0.50
-        assert gpt35_cost["output"] == 1.50
+        # Test OpenAI GPT-4o-mini
+        gpt4o_mini_cost = wizard._get_cost_config("openai", "openai/gpt-4o-mini")
+        assert gpt4o_mini_cost["input"] == 0.15
+        assert gpt4o_mini_cost["output"] == 0.60
 
-        # Test Anthropic Opus
-        opus_cost = wizard._get_cost_config("anthropic", "anthropic/claude-3-opus")
-        assert opus_cost["input"] == 15.00
-        assert opus_cost["output"] == 75.00
+        # Test Anthropic Claude Sonnet 4
+        sonnet_cost = wizard._get_cost_config("anthropic", "anthropic/claude-sonnet-4")
+        assert sonnet_cost["input"] == 3.00
+        assert sonnet_cost["output"] == 15.00
 
-        # Test Google Gemini Pro
-        gemini_pro_cost = wizard._get_cost_config("google", "google/gemini-pro")
-        assert gemini_pro_cost["input"] == 3.50
-        assert gemini_pro_cost["output"] == 10.50
+        # Test Google Gemini 2.5 Pro
+        gemini_pro_cost = wizard._get_cost_config("google", "google/gemini-2.5-pro-preview-03-25")
+        assert gemini_pro_cost["input"] == 1.25
+        assert gemini_pro_cost["output"] == 10.00
 
         # Test DeepSeek
         deepseek_cost = wizard._get_cost_config("deepseek", "deepseek/deepseek-chat")
-        assert deepseek_cost["input"] == 0.28
-        assert deepseek_cost["output"] == 0.42
+        assert deepseek_cost["input"] == 0.14
+        assert deepseek_cost["output"] == 0.28
 
         # Test Ollama (free)
         ollama_cost = wizard._get_cost_config("ollama", "ollama/llama2")

@@ -307,23 +307,19 @@ class LiteLLMProvider(ModelProvider):
         # Common models across providers
         common_models = [
             # OpenAI
-            "openai/gpt-4",
-            "openai/gpt-4-turbo-preview",
-            "openai/gpt-4-0125-preview",
-            "openai/gpt-4-1106-preview",
-            "openai/gpt-3.5-turbo",
-            "openai/gpt-3.5-turbo-0125",
+            "openai/gpt-4o",
+            "openai/gpt-4o-mini",
+            "openai/gpt-4.1",
+            "openai/gpt-4.1-mini",
+            "openai/o3-mini",
 
             # Anthropic
-            "anthropic/claude-3-opus-20240229",
-            "anthropic/claude-3-sonnet-20240229",
-            "anthropic/claude-3-haiku-20240307",
-            "anthropic/claude-2.1",
+            "anthropic/claude-sonnet-4-20250514",
+            "anthropic/claude-haiku-3-5-20241022",
 
             # Google
-            "google/gemini-1.5-pro-latest",
-            "google/gemini-1.5-flash-latest",
-            "google/gemini-pro",
+            "google/gemini-2.5-pro-preview-03-25",
+            "google/gemini-2.0-flash",
 
             # DeepSeek
             "deepseek/deepseek-chat",
@@ -374,33 +370,30 @@ class LiteLLMProvider(ModelProvider):
         capabilities = ModelCapabilities()
 
         # Set edit format based on model intelligence
-        if any(pattern in model_lower for pattern in ["gpt-4", "claude-3", "gemini-1.5"]):
-            capabilities.supports_edit_format = "editblock"
-        elif any(pattern in model_lower for pattern in ["gpt-3.5", "claude-2", "gemini-pro"]):
+        # Check lighter/cheaper models first (more specific patterns)
+        if any(pattern in model_lower for pattern in ["gpt-4o-mini", "gpt-4.1-mini", "claude-haiku", "gemini-2.0-flash"]):
             capabilities.supports_edit_format = "diff"
+        elif any(pattern in model_lower for pattern in ["gpt-4o", "gpt-4.1", "o3-mini", "claude-sonnet", "claude-opus", "gemini-2.5"]):
+            capabilities.supports_edit_format = "editblock"
         else:
             capabilities.supports_edit_format = "whole"
 
         # Set context window
-        if "claude-3" in model_lower:
+        if "claude-" in model_lower and ("sonnet" in model_lower or "opus" in model_lower or "haiku" in model_lower):
             capabilities.max_context_tokens = 200_000
-        elif "gemini-1.5" in model_lower:
+        elif "gemini-2" in model_lower:
             capabilities.max_context_tokens = 1_000_000
-        elif "gpt-4" in model_lower and "turbo" in model_lower:
+        elif "gpt-4o" in model_lower or "gpt-4.1" in model_lower or "o3-mini" in model_lower:
             capabilities.max_context_tokens = 128_000
-        elif "gpt-4" in model_lower:
-            capabilities.max_context_tokens = 8_192
-        elif "gpt-3.5" in model_lower:
-            capabilities.max_context_tokens = 16_385
 
         # Tool support
         capabilities.supports_tools = any(
-            pattern in model_lower for pattern in ["gpt-4", "claude-3", "gemini-1.5"]
+            pattern in model_lower for pattern in ["gpt-4o", "gpt-4.1", "o3-mini", "claude-sonnet", "claude-haiku", "claude-opus", "gemini-2"]
         )
 
         # Vision support
         capabilities.supports_vision = any(
-            pattern in model_lower for pattern in ["gpt-4-vision", "claude-3", "gemini-1.5"]
+            pattern in model_lower for pattern in ["gpt-4o", "claude-sonnet", "claude-haiku", "claude-opus", "gemini-2"]
         )
 
         return capabilities
@@ -418,20 +411,19 @@ class LiteLLMProvider(ModelProvider):
         # Prices as of March 2026 (approximate)
         cost_per_million = {
             # OpenAI
-            "gpt-4": (30.00, 60.00),
-            "gpt-4-turbo": (10.00, 30.00),
-            "gpt-3.5-turbo": (0.50, 1.50),
+            "gpt-4o": (2.50, 10.00),
+            "gpt-4o-mini": (0.15, 0.60),
+            "gpt-4.1": (2.00, 8.00),
+            "gpt-4.1-mini": (0.40, 1.60),
+            "o3-mini": (1.10, 4.40),
 
             # Anthropic
-            "claude-3-opus": (15.00, 75.00),
-            "claude-3-sonnet": (3.00, 15.00),
-            "claude-3-haiku": (0.25, 1.25),
-            "claude-2.1": (8.00, 24.00),
+            "claude-sonnet-4": (3.00, 15.00),
+            "claude-haiku-3.5": (0.80, 4.00),
 
             # Google
-            "gemini-1.5-pro": (3.50, 10.50),
-            "gemini-1.5-flash": (0.075, 0.30),
-            "gemini-pro": (0.50, 1.50),
+            "gemini-2.5-pro": (1.25, 10.00),
+            "gemini-2.0-flash": (0.10, 0.40),
 
             # DeepSeek
             "deepseek-chat": (0.28, 0.42),

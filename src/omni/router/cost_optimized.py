@@ -88,14 +88,15 @@ def _load_cost_rates(
 
 # Map long-form model IDs to short-form keys used in models.yaml
 _MODEL_ID_TO_SHORT: dict[str, str] = {
-    "openai/gpt-4": "gpt-4",
-    "openai/gpt-4-turbo-preview": "gpt-4-turbo",
-    "openai/gpt-3.5-turbo": "gpt-3.5-turbo",
-    "anthropic/claude-3-opus-20240229": "claude-3-opus",
-    "anthropic/claude-3-sonnet-20240229": "claude-3-sonnet",
-    "anthropic/claude-3-haiku-20240307": "claude-3-haiku",
-    "google/gemini-1.5-pro-latest": "gemini-1.5-pro",
-    "google/gemini-1.5-flash-latest": "gemini-1.5-flash",
+    "openai/gpt-4o": "gpt-4o",
+    "openai/gpt-4o-mini": "gpt-4o-mini",
+    "openai/gpt-4.1": "gpt-4.1",
+    "openai/gpt-4.1-mini": "gpt-4.1-mini",
+    "openai/o3-mini": "o3-mini",
+    "anthropic/claude-sonnet-4-20250514": "claude-sonnet-4",
+    "anthropic/claude-haiku-3-5-20241022": "claude-haiku-3.5",
+    "google/gemini-2.5-pro-preview-03-25": "gemini-2.5-pro",
+    "google/gemini-2.0-flash": "gemini-2.0-flash",
     "deepseek/deepseek-chat": "deepseek-chat",
     "deepseek/deepseek-coder": "deepseek-coder",
 }

@@ -362,38 +362,32 @@ class LiteLLMAdapter(ModelProvider):
         # Prices as of March 2026
         common_costs = {
             # OpenAI
-            "openai/gpt-4": CostRate(input_per_million=30.00, output_per_million=60.00),
-            "openai/gpt-4-turbo-preview": CostRate(
-                input_per_million=10.00, output_per_million=30.00
+            "openai/gpt-4o": CostRate(input_per_million=2.50, output_per_million=10.00),
+            "openai/gpt-4o-mini": CostRate(
+                input_per_million=0.15, output_per_million=0.60
             ),
-            "openai/gpt-3.5-turbo": CostRate(
-                input_per_million=0.50, output_per_million=1.50
+            "openai/gpt-4.1": CostRate(
+                input_per_million=2.00, output_per_million=8.00
             ),
-            "openai/gpt-3.5-turbo-0125": CostRate(
-                input_per_million=0.50, output_per_million=1.50
+            "openai/gpt-4.1-mini": CostRate(
+                input_per_million=0.40, output_per_million=1.60
+            ),
+            "openai/o3-mini": CostRate(
+                input_per_million=1.10, output_per_million=4.40
             ),
             # Anthropic
-            "anthropic/claude-3-opus-20240229": CostRate(
-                input_per_million=15.00, output_per_million=75.00
-            ),
-            "anthropic/claude-3-sonnet-20240229": CostRate(
+            "anthropic/claude-sonnet-4-20250514": CostRate(
                 input_per_million=3.00, output_per_million=15.00
             ),
-            "anthropic/claude-3-haiku-20240307": CostRate(
-                input_per_million=0.25, output_per_million=1.25
-            ),
-            "anthropic/claude-2.1": CostRate(
-                input_per_million=8.00, output_per_million=24.00
+            "anthropic/claude-haiku-3-5-20241022": CostRate(
+                input_per_million=0.80, output_per_million=4.00
             ),
             # Google
-            "google/gemini-1.5-pro-latest": CostRate(
-                input_per_million=3.50, output_per_million=10.50
+            "google/gemini-2.5-pro-preview-03-25": CostRate(
+                input_per_million=1.25, output_per_million=10.00
             ),
-            "google/gemini-1.5-flash-latest": CostRate(
-                input_per_million=0.075, output_per_million=0.30
-            ),
-            "google/gemini-pro": CostRate(
-                input_per_million=0.50, output_per_million=1.50
+            "google/gemini-2.0-flash": CostRate(
+                input_per_million=0.10, output_per_million=0.40
             ),
             # DeepSeek
             "deepseek/deepseek-chat": CostRate(

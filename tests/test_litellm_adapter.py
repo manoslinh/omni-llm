@@ -36,7 +36,7 @@ async def test_adapter_interface():
 
     # Test count_tokens method
     test_text = "Hello, world! This is a test."
-    tokens = adapter.count_tokens(test_text, "openai/gpt-3.5-turbo")
+    tokens = adapter.count_tokens(test_text, "openai/gpt-4o-mini")
     print(f"Token count for '{test_text[:20]}...': {tokens}")
 
     # Test estimate_cost method

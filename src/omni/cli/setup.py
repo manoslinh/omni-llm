@@ -358,36 +358,40 @@ class SetupWizard:
         """Get cost configuration for a provider/model."""
         # OpenAI costs
         if provider_name == "openai":
-            if "gpt-4" in model:
-                return {"input": 30.00, "output": 60.00}
-            elif "gpt-3.5" in model:
-                return {"input": 0.50, "output": 1.50}
+            if "gpt-4o-mini" in model or "gpt-4.1-mini" in model:
+                return {"input": 0.15, "output": 0.60}
+            elif "gpt-4o" in model:
+                return {"input": 2.50, "output": 10.00}
+            elif "gpt-4.1" in model:
+                return {"input": 2.00, "output": 8.00}
+            elif "o3-mini" in model:
+                return {"input": 1.10, "output": 4.40}
             else:
-                return {"input": 10.00, "output": 30.00}
+                return {"input": 2.50, "output": 10.00}
 
         # Anthropic costs
         elif provider_name == "anthropic":
-            if "opus" in model:
-                return {"input": 15.00, "output": 75.00}
-            elif "sonnet" in model:
+            if "sonnet" in model:
                 return {"input": 3.00, "output": 15.00}
             elif "haiku" in model:
-                return {"input": 0.25, "output": 1.25}
+                return {"input": 0.80, "output": 4.00}
+            elif "opus" in model:
+                return {"input": 15.00, "output": 75.00}
             else:
-                return {"input": 1.00, "output": 5.00}
+                return {"input": 3.00, "output": 15.00}
 
         # Google costs
         elif provider_name == "google":
-            if "pro" in model:
-                return {"input": 3.50, "output": 10.50}
+            if "2.5-pro" in model:
+                return {"input": 1.25, "output": 10.00}
             elif "flash" in model:
-                return {"input": 0.075, "output": 0.30}
+                return {"input": 0.10, "output": 0.40}
             else:
-                return {"input": 1.00, "output": 3.00}
+                return {"input": 1.25, "output": 10.00}
 
         # DeepSeek costs
         elif provider_name == "deepseek":
-            return {"input": 0.28, "output": 0.42}
+            return {"input": 0.14, "output": 0.28}
 
         # Ollama (free)
         elif provider_name == "ollama":
@@ -592,7 +596,7 @@ class SetupWizard:
                 first_provider = self.configured_providers[0].lower().replace(" ", "")
                 self.new_config["defaults"] = {
                     "provider": first_provider,
-                    "model": self.configured_models[0] if self.configured_models else "openai/gpt-3.5-turbo",
+                    "model": self.configured_models[0] if self.configured_models else "openai/gpt-4o-mini",
                     "temperature": 0.7,
                     "max_tokens": 1000,
                     "timeout": 30,

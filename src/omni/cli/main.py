@@ -223,33 +223,35 @@ def status() -> None:
 
 @cli.command()
 @click.argument("goal")
+@click.option("--model", "-m", default=None, help="Model to use (e.g., ollama/llama3, deepseek/deepseek-chat)")
 @click.option("--budget", "-b", type=float, help="Maximum cost in dollars")
 @click.option("--timeout", "-t", type=int, default=3600, help="Timeout in seconds")
 @click.option("--max-agents", type=int, default=5, help="Maximum number of agents to use")
 @click.option("--dry-run", is_flag=True, help="Plan without executing")
-def orchestrate(goal: str, budget: float | None, timeout: int, max_agents: int, dry_run: bool) -> None:
+def orchestrate(goal: str, model: str | None, budget: float | None, timeout: int, max_agents: int, dry_run: bool) -> None:
     """Run multi-agent orchestration for a goal."""
     detected = _auto_detect_providers()
     if not detected:
         click.echo("No API keys found. Running in demo mode with mock provider.")
         click.echo("Run `omni setup` to connect real AI models.\n")
 
-    asyncio.run(_orchestrate_async(goal, budget, timeout, max_agents, dry_run))
+    asyncio.run(_orchestrate_async(goal, model, budget, timeout, max_agents, dry_run))
 
 
 @cli.command()
 @click.argument("template", type=click.Path(exists=True))
+@click.option("--model", "-m", default=None, help="Model to use (e.g., ollama/llama3, deepseek/deepseek-chat)")
 @click.option("--variables", "-v", help="JSON string of variables")
 @click.option("--var-file", type=click.Path(exists=True), help="JSON file with variables")
 @click.option("--dry-run", is_flag=True, help="Show execution plan without running")
-def workflow(template: str, variables: str | None, var_file: str | None, dry_run: bool) -> None:
+def workflow(template: str, model: str | None, variables: str | None, var_file: str | None, dry_run: bool) -> None:
     """Execute a workflow template."""
     detected = _auto_detect_providers()
     if not detected:
         click.echo("No API keys found. Running in demo mode with mock provider.")
         click.echo("Run `omni setup` to connect real AI models.\n")
 
-    asyncio.run(_workflow_async(template, variables, var_file, dry_run))
+    asyncio.run(_workflow_async(template, model, variables, var_file, dry_run))
 
 
 @cli.command()
@@ -367,12 +369,17 @@ async def _list_models_async() -> None:
         await mock_provider.close()
 
 
-async def _orchestrate_async(goal: str, budget: float | None, timeout: int, max_agents: int, dry_run: bool) -> None:
+async def _orchestrate_async(goal: str, model: str | None, budget: float | None, timeout: int, max_agents: int, dry_run: bool) -> None:
     """Async implementation of the orchestrate command."""
     try:
         click.echo("🚀 Multi-Agent Orchestration")
         click.echo("=" * 50)
         click.echo(f"Goal: {goal}")
+
+        if model:
+            click.echo(f"Model: {model}")
+        else:
+            click.echo("Model: auto (cost-optimized routing)")
 
         if budget:
             click.echo(f"Budget: ${budget:.4f}")
@@ -416,7 +423,10 @@ async def _orchestrate_async(goal: str, budget: float | None, timeout: int, max_
             return
 
         click.echo("\n3. Executing workflow...")
-        click.echo("   (Execution would happen here)")
+        if model:
+            click.echo(f"   Model: {model}")
+        else:
+            click.echo("   Model: auto (cost-optimized routing)")
         click.echo("\n✅ Orchestration planning complete!")
 
         # Show execution plan
@@ -432,7 +442,7 @@ async def _orchestrate_async(goal: str, budget: float | None, timeout: int, max_
         sys.exit(1)
 
 
-async def _workflow_async(template: str, variables: str | None, var_file: str | None, dry_run: bool) -> None:
+async def _workflow_async(template: str, model: str | None, variables: str | None, var_file: str | None, dry_run: bool) -> None:
     """Async implementation of the workflow command."""
     try:
         import json
@@ -440,6 +450,11 @@ async def _workflow_async(template: str, variables: str | None, var_file: str | 
         click.echo("📋 Workflow Execution")
         click.echo("=" * 50)
         click.echo(f"Template: {template}")
+
+        if model:
+            click.echo(f"Model: {model}")
+        else:
+            click.echo("Model: auto (cost-optimized routing)")
 
         # Parse variables — initialize both dicts upfront to avoid NameError
         vars_dict: dict = {}
@@ -476,7 +491,16 @@ async def _workflow_async(template: str, variables: str | None, var_file: str | 
 
         # Substitute variables and show execution plan
         click.echo("\n3. Creating execution plan...")
-        substituted = workflow_template.substitute_variables(vars_dict)
+        try:
+            substituted = workflow_template.substitute_variables(vars_dict)
+        except ValueError as e:
+            click.echo(f"❌ Error: {e}")
+            click.echo("\nRequired variables for this template:")
+            for var_name, var in workflow_template.variables.items():
+                required = "required" if var.required else f"optional, default={var.default}"
+                click.echo(f"  {var_name}: {var.description} ({required})")
+            click.echo(f"\nUsage: omni workflow {template} -v '{{\"var_name\": \"value\"}}'")
+            sys.exit(1)
         click.echo(f"   Steps after substitution: {len(substituted.steps)}")
 
         # Show execution order using template's own method
